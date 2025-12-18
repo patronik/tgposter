@@ -3,6 +3,7 @@ const path = require('node:path');
 const fs = require('fs');
 
 const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
+const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 
 function readData() {
   if (!fs.existsSync(DATA_FILE)) return [];
@@ -11,6 +12,15 @@ function readData() {
 
 function writeData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+function readConfig() {
+  if (!fs.existsSync(CONFIG_FILE)) return {};
+  return JSON.parse(fs.readFileSync(CONFIG_FILE));
+}
+
+function writeConfig(config) {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -41,7 +51,7 @@ ipcMain.handle('get-items', () => {
 
 ipcMain.handle('get-item', (_, id) => {
   const result = readData().filter(i => i.id == id);
-  return result[0] || null;
+  return result[0];
 });
 
 ipcMain.handle('add-item', (_, item) => {
@@ -62,6 +72,20 @@ ipcMain.handle('delete-item', (_, id) => {
   const data = readData().filter(i => i.id !== id);
   writeData(data);
   return data;
+});
+
+ipcMain.handle('get-config', () => {
+  return readConfig();
+});
+
+ipcMain.handle('get-config-item', (_, key) => {
+  const config = readConfig();
+  return config[key];
+});
+
+ipcMain.handle('set-config', (_, config) => {
+  writeConfig(config);
+  return config;
 });
 
 // This method will be called when Electron has finished

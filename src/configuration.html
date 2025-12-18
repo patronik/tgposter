@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Configuration</title>
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Configuration</h2>
+
+    <a href="index.html">&#x2302; Home</a>
+
+    <div class="form-grid">
+      <input id="key" placeholder="Config key" />
+      <input id="value" placeholder="Config value" />
+    </div>
+
+    <div class="button-group">      
+      <button id="add_btn" onclick="addConfig()">Add</button>
+      <button id="save_btn" style="display: none;" onclick="saveConfig()">Save</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Current config</h2>
+    <table class="data-grid">
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Value</th>
+          <th width="120">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="config-list"></tbody>
+    </table>
+  </div>
+
+  <script src="configuration.js"></script>
+</body>
+</html>
