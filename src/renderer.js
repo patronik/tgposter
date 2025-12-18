@@ -8,6 +8,8 @@ async function load() {
       <td>${i.id}</td>
       <td>${i.comment}</td> 
       <td>${i.reaction}</td>
+      <td>${i.prompt}</td>
+      <td>${i.target}</td>
       <td>                
         <div class="btn_container">
           <div><button onclick="edit('${i.id}')">Edit</button></div>
@@ -27,10 +29,14 @@ async function add() {
   }
   const comment = document.getElementById('comment').value;
   const reaction = document.getElementById('reaction').value;
+  const prompt = document.getElementById('prompt').value;
+  const target = document.getElementById('target').value;
   await window.api.addItem({
     id,
     comment,
-    reaction
+    reaction,
+    prompt,
+    target
   });
   load();
 }
@@ -40,6 +46,8 @@ async function edit(id) {
   document.getElementById('id').value = item.id;
   document.getElementById('comment').value = item.comment;
   document.getElementById('reaction').value = item.reaction;
+  document.getElementById('prompt').value = item.prompt;
+  document.getElementById('target').value = item.target;
   document.getElementById("add_btn").style.display = "none";
   document.getElementById("save_btn").style.display = "block";
   document.getElementById("id").readOnly = true;
@@ -49,12 +57,16 @@ async function save() {
   const id = document.getElementById('id').value;
   const comment = document.getElementById('comment').value;
   const reaction = document.getElementById('reaction').value;
-  await window.api.updateItem({ id, comment, reaction });
+  const prompt = document.getElementById('prompt').value;
+  const target = document.getElementById('target').value;
+  await window.api.updateItem({ id, comment, reaction, prompt, target });
   load();
 
   document.getElementById('id').value = '';
   document.getElementById('comment').value = '';
   document.getElementById('reaction').value = '';
+  document.getElementById('prompt').value = '';
+  document.getElementById('target').value = '';
   document.getElementById("add_btn").style.display = "block";
   document.getElementById("save_btn").style.display = "none";
   document.getElementById("id").readOnly = false;
