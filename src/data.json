@@ -1,32 +1,17 @@
 [
   {
-    "id": "test",
-    "comment": "test",
-    "reaction": "tw"
+    "id": "mygroup",
+    "comment": "Hello All",
+    "reaction": "test"
   },
   {
-    "id": "test",
-    "comment": "test",
-    "reaction": "tw"
+    "id": "mygroup2",
+    "comment": "Hello All",
+    "reaction": "test"
   },
   {
-    "id": "test",
-    "comment": "test",
-    "reaction": "tw"
-  },
-  {
-    "id": "test",
-    "comment": "test",
-    "reaction": "tw"
-  },
-  {
-    "id": "test",
-    "comment": "test",
-    "reaction": "tw"
-  },
-  {
-    "id": "test",
-    "comment": "test",
-    "reaction": "tw"
+    "id": "mygroup3",
+    "comment": "Hello All",
+    "reaction": "test"
   }
 ]

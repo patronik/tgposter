@@ -32,11 +32,16 @@ const createWindow = () => {
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 };
 
 ipcMain.handle('get-items', () => {
   return readData();
+});
+
+ipcMain.handle('get-item', (_, id) => {
+  const result = readData().filter(i => i.id == id);
+  return result[0] || null;
 });
 
 ipcMain.handle('add-item', (_, item) => {
