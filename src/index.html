@@ -1,18 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>TGPoster</title>
+ <link rel="stylesheet" href="index.css">
 </head>
 <body>
-  <h2>TGPoster</h2>
-  <input id="id" placeholder="Id" />
-  <input id="comment" placeholder="Comment" />
-  <input id="reaction" placeholder="Reaction" />
-  <button id="add_btn" onclick="add()">Add</button>
-  <button id="save_btn" style="display: none;" onclick="save()">Save</button>
+  <div class="container">
+    <h2>TGPoster Management</h2>
+    
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="id">ID</label>
+        <input id="id" placeholder="Enter unique ID" />
+      </div>
+      
+      <div class="form-group">
+        <label for="comment">Comment</label>
+        <input id="comment" placeholder="Enter comment" />
+      </div>
+      
+      <div class="form-group">
+        <label for="reaction">Reaction</label>
+        <input id="reaction" placeholder="Enter reaction" />
+      </div>
+    </div>
+    
+    <div class="button-group">
+      <button id="add_btn" onclick="add()">Add New</button>
+      <button id="save_btn" style="display: none;" onclick="save()">Save Changes</button>
+    </div>
+  </div>
 
-  <ul id="list"></ul>
+  <div class="container">
+    <h2>Data Records</h2>
+    <table class="data-grid" id="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Comment</th>
+          <th>Reaction</th>
+          <th width="150">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="list">
+        <!-- Data will be loaded here -->
+      </tbody>
+    </table>
+    <div id="empty-message" class="empty-state" style="display: none;">
+      <h3>No Records Found</h3>
+      <p>Add your first record using the form above</p>
+    </div>
+  </div>
 
   <script src="renderer.js"></script>
 </body>
