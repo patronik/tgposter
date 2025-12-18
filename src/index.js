@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('node:path');
 const fs = require('fs');
 
-const DATA_FILE = path.join(__dirname, 'data.json');
+const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
 
 function readData() {
   if (!fs.existsSync(DATA_FILE)) return [];
@@ -32,7 +32,7 @@ const createWindow = () => {
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
   // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 };
 
 ipcMain.handle('get-items', () => {
