@@ -188,6 +188,15 @@ button:disabled {
   margin-top: 10px;
 }
 
+.btn_container {
+  display: flex;
+  padding: 5px;
+}
+
+.btn_container div {
+  margin: 5px;
+}
+
 @media (max-width: 768px) {
   .form-grid {
     grid-template-columns: 1fr;

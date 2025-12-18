@@ -8,9 +8,11 @@ async function load() {
       <td>${i.id}</td>
       <td>${i.comment}</td> 
       <td>${i.reaction}</td>
-      <td>
-        <button onclick="edit('${i.id}')">Edit</button>
-        <button onclick="remove('${i.id}')">Delete</button>
+      <td>                
+        <div class="btn_container">
+          <div><button onclick="edit('${i.id}')">Edit</button></div>
+          <div><button onclick="remove('${i.id}')">Delete</button></div>          
+        </div>
       </td>
     `;
     tbody.appendChild(tr);
