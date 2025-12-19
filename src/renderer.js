@@ -37,7 +37,7 @@ const stopBtn = document.getElementById('stop_btn');
 stopBtn.onclick = async () => {
   try {
     await window.api.stopPosting();
-    appStatus.textContent = '';
+    appStatus.textContent = 'Not running';
   } catch (err) {
     appStatus.textContent = err.message;
   }  

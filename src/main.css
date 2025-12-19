@@ -197,6 +197,15 @@ button:disabled {
   margin: 5px;
 }
 
+.controls {
+  display: flex;  
+  justify-content: center; 
+}
+
+.controls div {
+  margin: 5px;
+}
+
 @media (max-width: 768px) {
   .form-grid {
     grid-template-columns: 1fr;
