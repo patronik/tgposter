@@ -12,7 +12,7 @@ window.api.onCodeRequest(() => {
 });
 
 // send code to main
-button.onclick = async () => {
+sendCodeBtn.onclick = async () => {
   if (!waitingForCode) return;
   try {
     await window.api.submitCode(codeInput.value);
