@@ -146,21 +146,63 @@ async function getRandomChannelPost(channelPeer) {
 }
 
 
-async function sendMessage(groupid, message) {
+async function sendMessage(groupid, message, prompt, target) {
   try {
     const { peer } = await ensureMembership(groupid);
-    await mtprotoCall('messages.sendMessage', {
-      peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
+
+    const params = {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: peer.id,
+        access_hash: peer.access_hash,
+      },
       message,
       random_id: BigInt(Math.floor(Math.random() * 1e18)).toString(),
-    });
+    };
+
+    if (target) {
+      const history = await mtprotoCall('messages.getHistory', {
+        peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
+        limit: 10,
+      });
+      
+      const validMessages = (history.messages || []).filter(
+        (m) => m?.id && m._ === 'message'
+      );
+
+      if (!validMessages.length) {
+        throw new Error('No valid messages to reply to.');
+      }
+
+      let targetMessage;
+      if (target == '$') {
+        targetMessage = validMessages[0];
+      } else if (target == '*')  {
+        targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
+        if (!targetMessage?.id) {
+          throw new Error('Random message not found.')
+        }
+      } else {
+        throw new Error(`Unsupported target "${target}".`);
+      }
+
+      // TODO implement replying with AI (if prompt is provided)
+
+      params.reply_to = {
+        _: 'inputReplyToMessage',
+        reply_to_msg_id: targetMessage?.id,
+      };
+    }
+
+    await mtprotoCall('messages.sendMessage', params);
+
     console.log(`✅ Message sent to ${groupid}`);
   } catch (error) {
     console.error(`❌ Error sending to ${groupid}:`, error);
   }
 }
 
-async function reactToMessage(groupid, reaction) {
+async function reactToMessage(groupid, reaction, target) {
   try {
     const { peer } = await ensureMembership(groupid);
     const history = await mtprotoCall('messages.getHistory', {
@@ -168,17 +210,33 @@ async function reactToMessage(groupid, reaction) {
       limit: 10,
     });
 
-    const randomMessage = history.messages[getRandomNumber(0, history.messages.length - 1)];
-    if (!randomMessage?.id) {
-      throw new Error('Random message not found.')
+    const validMessages = (history.messages || []).filter(
+      (m) => m?.id && m._ === 'message'
+    );
+
+    if (!validMessages.length) {
+      throw new Error('No valid messages to reply to.');
     }
+
+    let targetMessage;
+    if (target == '$') {
+      targetMessage = validMessages[0];
+    } else if (target == '*')  {
+      targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
+      if (!targetMessage?.id) {
+        throw new Error('Random message not found.')
+      }
+    } else {
+      throw new Error(`Unsupported target "${target}".`);
+    }
+
     await mtprotoCall('messages.sendReaction', {
       peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
-      msg_id: randomMessage.id,
+      msg_id: targetMessage.id,
       reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
       big: false,
     });
-    console.log(`✅ Reacted to message https://t.me/${(groupid.replace('@', ''))}/${randomMessage.id} in ${groupid}`);
+    console.log(`✅ Reacted to message https://t.me/${(groupid.replace('@', ''))}/${targetMessage.id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
   }
@@ -210,10 +268,7 @@ async function sendCommentToPost(channelGroupId, channelPostId, commentText) {
   try {
     const { peer: channelPeer } = await ensureMembership(channelGroupId);
     
-    if (channelPostId === '^') {
-      channelPostId = await getFirstChannelPost(channelPeer);
-      console.log(`🔍 First post ID: ${channelPostId}`);
-    } else if (channelPostId === '$') {
+    if (channelPostId === '$') {
       channelPostId = await getLastChannelPost(channelPeer);
       console.log(`🔍 Last post ID: ${channelPostId}`);
     } else if (channelPostId === '*') {
@@ -337,8 +392,8 @@ async function processGroups(requestCode) {
     for (const group of data) {
       const { id, comment, reaction, prompt, target } = group;
       
-      if (comment) await sendMessage(id, comment);
-      if (reaction) await reactToMessage(id, reaction);
+      if (comment) await sendMessage(id, comment, prompt, target);
+      if (reaction) await reactToMessage(id, reaction, target);
       
       /*
       if (comments) {
