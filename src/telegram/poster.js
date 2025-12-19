@@ -145,7 +145,6 @@ async function getRandomChannelPost(channelPeer) {
   return history.messages[getRandomNumber(0, history.messages.length - 1)].id;
 }
 
-
 async function sendMessage(groupid, message, prompt, target) {
   try {
     const { peer } = await ensureMembership(groupid);
@@ -184,14 +183,11 @@ async function sendMessage(groupid, message, prompt, target) {
         }
       } else {
         throw new Error(`Unsupported target "${target}".`);
-      }
+      }      
+
+      params.reply_to_msg_id = targetMessage.id;
 
       // TODO implement replying with AI (if prompt is provided)
-
-      params.reply_to = {
-        _: 'inputReplyToMessage',
-        reply_to_msg_id: targetMessage?.id,
-      };
     }
 
     await mtprotoCall('messages.sendMessage', params);
