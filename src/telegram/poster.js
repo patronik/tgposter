@@ -324,7 +324,12 @@ async function reactToComment(channelGroupId, msgId, reaction) {
 }
 
 async function processGroups(requestCode) {
-  await authenticate(requestCode);
+  try { 
+    await authenticate(requestCode);
+  } catch (err) {
+    console.log(err);
+  }
+
   const data = readData();
 
   IS_RUNNING = true;
@@ -351,7 +356,7 @@ async function processGroups(requestCode) {
       }
       */  
       
-      await sleep(getConfigItem('TELEGRAM_BOT_LOOP_DELAY'));
+      await sleep(getConfigItem('TELEGRAM_ITERATION_DELAY'));
     }
   }  
 }
@@ -362,4 +367,4 @@ function stopPosting()
 }
 
 module.exports.processGroups = processGroups;
-module.exports.processGroups = stopPosting;
+module.exports.stopPosting = stopPosting;
