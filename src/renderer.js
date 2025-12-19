@@ -1,4 +1,34 @@
 let waitingForCode = false;
+let isRunning = false;
+
+function toggleSpinner() {  
+  const spinner = document.getElementById('mySpinner');
+  if (spinner.classList.contains('paused')) {
+    spinner.classList.remove('paused');
+  } else {
+    spinner.classList.add('paused');
+  }
+}
+
+const actionBtn = document.getElementById('action_btn');
+actionBtn.onclick = async () => {
+  try {
+    if (!isRunning) {
+      await window.api.processGroups();      
+      toggleSpinner();
+      actionBtn.innerHTML = 'Stop';
+      isRunning = true;
+    } else {
+      await window.api.stopPosting();      
+      toggleSpinner();      
+      actionBtn.innerHTML = 'Start';
+      isRunning = false;
+    }   
+  } catch (err) {
+    appStatus.textContent = err.message;
+  }  
+};
+
 const appStatus = document.getElementById('status');
 const codeInput = document.getElementById('code');
 const sendCodeBtn = document.getElementById('send_code');
@@ -21,26 +51,6 @@ sendCodeBtn.onclick = async () => {
   } catch (err) {
     appStatus.textContent = err.message;
   }
-};
-
-const startBtn = document.getElementById('start_btn');
-startBtn.onclick = async () => {
-  try {
-    await window.api.processGroups();
-    appStatus.textContent = 'Running...';
-  } catch (err) {
-    appStatus.textContent = err.message;
-  }  
-};
-
-const stopBtn = document.getElementById('stop_btn');
-stopBtn.onclick = async () => {
-  try {
-    await window.api.stopPosting();
-    appStatus.textContent = 'Not running';
-  } catch (err) {
-    appStatus.textContent = err.message;
-  }  
 };
 
 async function load() {

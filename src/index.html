@@ -46,12 +46,13 @@
   </div>
 
     <div class="container">    
-      <div class="controls">
-          <div><p id="status">Not running</p></div>
-          <div><input type="code" id="code" placeholder="Enter code"/></div>
+      <div class="controls">          
+          <div id="status"></div>
+          <div><input type="code" id="code"/></div>
           <div><button id="send_code">Send code</button></div>       
-          <div><button id="start_btn" type="button">Start</button></div>
-          <div><button id="stop_btn" type="button">Stop</button></div>         
+          
+          <div class="spinner paused" id="mySpinner"></div>
+          <div><button id="action_btn" type="button">Start</button></div>                   
       </div>    
     </div>   
 
