@@ -2,7 +2,7 @@
   "name": "tgposter",
   "productName": "tgposter",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "Automatic telegram poster",
   "main": "src/index.js",
   "scripts": {
     "start": "electron-forge start",
@@ -13,11 +13,12 @@
   },
   "keywords": [],
   "author": {
-    "name": "Vasyl Voina",
-    "email": "<vasyl.voina@gmail.com>"
+    "name": "Gatny Taras",
+    "email": "<gatnyi.taras@gmail.com>"
   },
   "license": "MIT",
   "dependencies": {
+    "@mtproto/core": "^6.3.0",
     "electron-squirrel-startup": "^1.0.1"
   },
   "devDependencies": {
