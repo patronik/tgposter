@@ -3,11 +3,10 @@ const path = require('node:path');
 const fs = require('fs');
 
 let config = {};
+let initialized = false;
 
 const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
-
-console.log(app.getPath('userData'));
 
 function readData() {
   if (!fs.existsSync(DATA_FILE)) return [];
@@ -21,6 +20,7 @@ function writeData(data) {
 function readConfig() {
   if (!fs.existsSync(CONFIG_FILE)) return config;
   config = JSON.parse(fs.readFileSync(CONFIG_FILE));
+  initialized = true;
   return config;
 }
 
@@ -29,7 +29,10 @@ function writeConfig(config) {
   config = JSON.parse(fs.readFileSync(CONFIG_FILE));
 }
 
-function getConfigItem(key) {  
+function getConfigItem(key) { 
+  if (!initialized) {
+    readConfig();
+  }
   return config[key];
 };
 
