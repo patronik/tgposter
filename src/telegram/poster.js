@@ -329,12 +329,11 @@ async function processGroups(requestCode) {
   } catch (err) {
     console.log(err);
     return;
-  }
-
-  const data = readData();
+  }  
 
   IS_RUNNING = true;
   while (IS_RUNNING) {
+    const data = readData();
     for (const group of data) {
       const { id, comment, reaction, prompt, target } = group;
       
