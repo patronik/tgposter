@@ -1,12 +1,12 @@
 let waitingForCode = false;
-const codeStatus = document.getElementById('status');
+const appStatus = document.getElementById('status');
 const codeInput = document.getElementById('code');
 const sendCodeBtn = document.getElementById('send_code');
 
 // request auth code
 window.api.onCodeRequest(() => {
   waitingForCode = true;
-  codeStatus.textContent = 'Enter code:';
+  appStatus.textContent = 'Enter code:';
   codeInput.value = '';
   input.focus();
 });
@@ -16,11 +16,31 @@ button.onclick = async () => {
   if (!waitingForCode) return;
   try {
     await window.api.submitCode(codeInput.value);
-    codeStatus.textContent = 'Code sent';
+    appStatus.textContent = 'Code sent';
     waitingForCode = false;
   } catch (err) {
-    codeStatus.textContent = err.message;
+    appStatus.textContent = err.message;
   }
+};
+
+const startBtn = document.getElementById('start_btn');
+startBtn.onclick = async () => {
+  try {
+    await window.api.processGroups();
+    appStatus.textContent = 'Running...';
+  } catch (err) {
+    appStatus.textContent = err.message;
+  }  
+};
+
+const stopBtn = document.getElementById('stop_btn');
+stopBtn.onclick = async () => {
+  try {
+    await window.api.stopPosting();
+    appStatus.textContent = '';
+  } catch (err) {
+    appStatus.textContent = err.message;
+  }  
 };
 
 async function load() {
