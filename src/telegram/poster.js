@@ -260,14 +260,15 @@ async function findDiscussionMessageId(linkedChatPeer, channelPeer, channelPostI
   }
 }
 
-async function sendCommentToPost(channelGroupId, channelPostId, commentText) {
+async function sendCommentToPost(channelGroupId, target, comment) {
   try {
     const { peer: channelPeer } = await ensureMembership(channelGroupId);
     
-    if (channelPostId === '$') {
+    let channelPostId;
+    if (target === '$') {
       channelPostId = await getLastChannelPost(channelPeer);
       console.log(`🔍 Last post ID: ${channelPostId}`);
-    } else if (channelPostId === '*') {
+    } else if (target === '*') {
       channelPostId = await getRandomChannelPost(channelPeer);
       console.log(`🔍 Random post ID: ${channelPostId}`);
     }
@@ -300,21 +301,19 @@ async function sendCommentToPost(channelGroupId, channelPostId, commentText) {
         channel_id: linkedChat.peer.id, 
         access_hash: linkedChat.peer.access_hash 
       },
-      message: commentText,
+      message: comment,
       reply_to: {
         _: 'inputReplyToMessage',
         reply_to_msg_id: discussionMsgId,
       },
       random_id: BigInt(Math.floor(Math.random() * 1e18)).toString(),
-    });
-
-    // console.log('Send comment to post API result:', JSON.stringify(result));
+    });    
   } catch (error) {
     console.error(`❌ Ultimate error:`, error);
   }
 }
 
-async function reactToComment(channelGroupId, msgId, reaction) {
+async function reactToComment(channelGroupId, target, reaction) {
   try {
     const { peer: channelPeer } = await ensureMembership(channelGroupId);
     const linkedChat = await getLinkedChatPeer(channelPeer);
@@ -339,35 +338,50 @@ async function reactToComment(channelGroupId, msgId, reaction) {
       await ensureMembership(inviteHash);
     }
 
-    let actualMsgId = msgId;
-
-    if (msgId === '$') {
+    let actualMsgId ;
+    if (target === '$') {
       const history = await mtprotoCall('messages.getHistory', {
         peer: { _: 'inputPeerChannel', channel_id: linkedChat.peer.id, access_hash: linkedChat.peer.access_hash },
         limit: 1,
       });
-      actualMsgId = history.messages[0]?.id;
+
+      const validMessages = (history.messages || []).filter(
+        (m) => m?.id && m._ === 'message'
+      );
+
+      if (!validMessages.length) {
+        throw new Error('No valid messages to reply to.');
+      }
+
+      actualMsgId = validMessages[0]?.id;
       if (!actualMsgId) throw new Error('No comments found');
       console.log(`🔍 Last comment ID: ${actualMsgId}`);
-    } else if (msgId === '*') {
+    } else if (target === '*') {
       const history = await mtprotoCall('messages.getHistory', {
         peer: { _: 'inputPeerChannel', channel_id: linkedChat.peer.id, access_hash: linkedChat.peer.access_hash },
         limit: 20,
       });
 
-      actualMsgId = history.messages[getRandomNumber(0, history.messages.length - 1)]?.id;
+      const validMessages = (history.messages || []).filter(
+        (m) => m?.id && m._ === 'message'
+      );
+
+      if (!validMessages.length) {
+        throw new Error('No valid messages to reply to.');
+      }
+
+      actualMsgId = validMessages[getRandomNumber(0, validMessages.length - 1)]?.id;
       if (!actualMsgId) throw new Error('No comments found');
       console.log(`🔍 Last comment ID: ${actualMsgId}`);
     }
 
-    const result = await mtprotoCall('messages.sendReaction', {
+    await mtprotoCall('messages.sendReaction', {
       peer: { _: 'inputPeerChannel', channel_id: linkedChat.peer.id, access_hash: linkedChat.peer.access_hash },
       msg_id: actualMsgId,
       reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
       big: false,
     });
-
-    // console.log('React to comment API result:', JSON.stringify(result));
+    
     console.log(`✅ Reacted to comment ${actualMsgId} in ${channelGroupId}`);
   } catch (error) {
     console.error(`❌ Comment react error ${msgId}:`, error);
@@ -392,19 +406,8 @@ async function processGroups(requestCode) {
       if (reaction) await reactToMessage(id, reaction, target || '*');
       
       /*
-      if (comments) {
-        for (const comment of comments) {
-          await sendCommentToPost(groupid, comment.post_id, comment.message);
-          await sleep(getConfigItem('TELEGRAM_API_DELAY') * 1000);
-        }
-      }
-      
-      if (comment_reactions) {
-        for (const cr of comment_reactions) {
-          await reactToComment(groupid, cr.msg_id, cr.reaction);
-          await sleep(getConfigItem('TELEGRAM_API_DELAY') * 1000);
-        }
-      }
+        await sendCommentToPost(id, target, comment);      
+        await reactToComment(id, target, reaction);
       */              
     }
     await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 1000);
