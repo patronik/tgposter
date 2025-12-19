@@ -389,7 +389,7 @@ async function processGroups(requestCode) {
       const { id, comment, reaction, prompt, target } = group;
       
       if (comment) await sendMessage(id, comment, prompt, target);
-      if (reaction) await reactToMessage(id, reaction, target);
+      if (reaction) await reactToMessage(id, reaction, target || '*');
       
       /*
       if (comments) {
