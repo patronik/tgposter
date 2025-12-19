@@ -7,6 +7,8 @@ let config = {};
 const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 
+console.log(app.getPath('userData'));
+
 function readData() {
   if (!fs.existsSync(DATA_FILE)) return [];
   return JSON.parse(fs.readFileSync(DATA_FILE));
