@@ -6,7 +6,7 @@ let IS_RUNNING = false;
 
 async function mtprotoCall(method, data) {
   const result = await mtproto.call(method, data);
-  await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 60 * 1000);
+  await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 1000);
   return result;
 }
 
@@ -399,19 +399,19 @@ async function processGroups(requestCode) {
       if (comments) {
         for (const comment of comments) {
           await sendCommentToPost(groupid, comment.post_id, comment.message);
-          await sleep(getConfigItem('TELEGRAM_API_DELAY') * 60 * 1000);
+          await sleep(getConfigItem('TELEGRAM_API_DELAY') * 1000);
         }
       }
       
       if (comment_reactions) {
         for (const cr of comment_reactions) {
           await reactToComment(groupid, cr.msg_id, cr.reaction);
-          await sleep(getConfigItem('TELEGRAM_API_DELAY') * 60 * 1000);
+          await sleep(getConfigItem('TELEGRAM_API_DELAY') * 1000);
         }
       }
       */              
     }
-    await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 60 * 1000);
+    await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 1000);
   }  
 }
 
