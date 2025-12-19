@@ -1,7 +1,22 @@
 let config = {};
 
+const required = [
+  'TELEGRAM_API_ID',
+  'TELEGRAM_API_HASH',
+  'TELEGRAM_PHONE_NUM',
+  'TELEGRAM_ITERATION_DELAY',
+  'TELEGRAM_API_DELAY'
+];
+
 async function loadConfig() {
   config = await window.api.getConfig();
+
+  for (let item of required) {
+    if (!config[item]) {
+      config[item] = '';
+    }
+  }
+
   render();
 }
 
@@ -63,6 +78,10 @@ async function saveConfig() {
 }
 
 async function removeConfig(key) {
+  if (required.includes(key)) {
+    console.log('Required configuration cannot be removed.');
+    return;
+  }
   delete config[key];
   await window.api.setConfig(config);
   render();

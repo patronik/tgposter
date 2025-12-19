@@ -328,6 +328,7 @@ async function processGroups(requestCode) {
     await authenticate(requestCode);
   } catch (err) {
     console.log(err);
+    return;
   }
 
   const data = readData();
