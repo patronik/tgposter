@@ -11,4 +11,9 @@ contextBridge.exposeInMainWorld('api', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   getConfigItem: (key) => ipcRenderer.invoke('get-config-item', key),
   setConfig: (config) => ipcRenderer.invoke('set-config', config),
+  // auth
+  onCodeRequest: (callback) => ipcRenderer.on('request-code', callback),
+  submitCode: (code) => ipcRenderer.invoke('submit-code', code),
+  // control
+  startPosting: () => ipcRenderer.invoke('start-posting')  
 });
