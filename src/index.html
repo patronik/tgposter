@@ -12,9 +12,15 @@
 
     <a href="configuration.html">⚙ Configuration</a>
 
-    <div>
-        <button id="start_btn" type="button">Start</button>
-        <button id="stop_btn" style="display: none;" type="button">Stop</button>
+    <div class="button-group">
+        <div><p id="status"></p></div>
+        <div><input type="code" id="code" placeholder="Enter code"/></div>
+        <div><button id="send_code">Send code</button></div>                
+    </div>
+
+    <div class="button-group">        
+        <div><button id="start_btn" type="button">Start</button></div>
+        <div><button id="stop_btn" type="button">Stop</button></div>
     </div>
     
     <div class="form-grid">

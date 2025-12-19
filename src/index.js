@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { readData, writeData, readConfig, writeConfig, getConfigItem } = require('./config');
-const { processGroups } = require('./telegram/poster');
+const { processGroups, stopPosting } = require('./telegram/poster');
 const path = require('node:path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -14,8 +14,8 @@ let codeResolver;
 const createWindow = async () => {
   // Create the browser window.
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1200,
+    height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
@@ -100,6 +100,10 @@ ipcMain.handle('set-config', (_, config) => {
 
 ipcMain.handle('process-groups', (_) => {
   processGroups(requestCode);  
+});
+
+ipcMain.handle('stop-posting', (_) => {
+  stopPosting();  
 });
 
 /**

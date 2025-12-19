@@ -2,6 +2,8 @@ const { readData, getConfigItem } = require('../config');
 const { mtproto, authenticate } = require(`./mtproto`);
 const { sleep, getRandomNumber } = require('../utils');
 
+let IS_RUNNING = false;
+
 async function mtprotoCall(method, data) {
   const result = await mtproto.call(method, data);
   await sleep(getConfigItem('TELEGRAM_BOT_API_DELAY'));
@@ -321,34 +323,43 @@ async function reactToComment(channelGroupId, msgId, reaction) {
   }
 }
 
-async function processGroups(prompt) {
-  await authenticate(prompt);
+async function processGroups(requestCode) {
+  await authenticate(requestCode);
   const data = readData();
 
-  for (const group of data) {
-    const { groupid, message, reaction, comments, comment_reactions } = group;
-    
-    if (message) await sendMessage(groupid, message);
-    if (reaction) await reactToMessage(groupid, reaction);
-    
-    /*
-    if (comments) {
-      for (const comment of comments) {
-        await sendCommentToPost(groupid, comment.post_id, comment.message);
-        await sleep(getConfigItem('TELEGRAM_BOT_API_DELAY'));
+  IS_RUNNING = true;
+  while (IS_RUNNING) {
+    for (const group of data) {
+      const { id, comment, reaction, prompt, target } = group;
+      
+      if (comment) await sendMessage(id, comment);
+      if (reaction) await reactToMessage(id, reaction);
+      
+      /*
+      if (comments) {
+        for (const comment of comments) {
+          await sendCommentToPost(groupid, comment.post_id, comment.message);
+          await sleep(getConfigItem('TELEGRAM_BOT_API_DELAY'));
+        }
       }
-    }
-    
-    if (comment_reactions) {
-      for (const cr of comment_reactions) {
-        await reactToComment(groupid, cr.msg_id, cr.reaction);
-        await sleep(getConfigItem('TELEGRAM_BOT_API_DELAY'));
+      
+      if (comment_reactions) {
+        for (const cr of comment_reactions) {
+          await reactToComment(groupid, cr.msg_id, cr.reaction);
+          await sleep(getConfigItem('TELEGRAM_BOT_API_DELAY'));
+        }
       }
+      */  
+      
+      await sleep(getConfigItem('TELEGRAM_BOT_LOOP_DELAY'));
     }
-    */  
-    
-    await sleep(getConfigItem('TELEGRAM_BOT_API_DELAY'));
-  }
+  }  
+}
+
+function stopPosting()
+{
+  IS_RUNNING = false;
 }
 
 module.exports.processGroups = processGroups;
+module.exports.processGroups = stopPosting;

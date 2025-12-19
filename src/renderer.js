@@ -1,3 +1,28 @@
+let waitingForCode = false;
+const codeStatus = document.getElementById('status');
+const codeInput = document.getElementById('code');
+const sendCodeBtn = document.getElementById('send_code');
+
+// request auth code
+window.api.onCodeRequest(() => {
+  waitingForCode = true;
+  codeStatus.textContent = 'Enter code:';
+  codeInput.value = '';
+  input.focus();
+});
+
+// send code to main
+button.onclick = async () => {
+  if (!waitingForCode) return;
+  try {
+    await window.api.submitCode(codeInput.value);
+    codeStatus.textContent = 'Code sent';
+    waitingForCode = false;
+  } catch (err) {
+    codeStatus.textContent = err.message;
+  }
+};
+
 async function load() {
   const items = await window.api.getItems();
   const tbody = document.getElementById('list');
