@@ -145,10 +145,8 @@ async function getRandomChannelPost(channelPeer) {
   return history.messages[getRandomNumber(0, history.messages.length - 1)].id;
 }
 
-async function sendMessage(groupid, message, prompt, target) {
-  try {
-    const { peer } = await ensureMembership(groupid);
-
+async function sendMessage(peer, groupid, message, prompt, target) {
+  try {  
     const params = {
       peer: {
         _: 'inputPeerChannel',
@@ -198,9 +196,8 @@ async function sendMessage(groupid, message, prompt, target) {
   }
 }
 
-async function reactToMessage(groupid, reaction, target) {
-  try {
-    const { peer } = await ensureMembership(groupid);
+async function reactToMessage(peer, groupid, reaction, target) {
+  try {    
     const history = await mtprotoCall('messages.getHistory', {
       peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
       limit: 10,
@@ -238,7 +235,7 @@ async function reactToMessage(groupid, reaction, target) {
   }
 }
 
-async function findDiscussionMessageId(linkedChatPeer, channelPeer, channelPostId, msgId) {
+async function findDiscussionMessageId(linkedChatPeer, channelPeer, channelPostId) {
   try {
     const history = await mtprotoCall('messages.getHistory', {
       peer: { _: 'inputPeerChannel', channel_id: linkedChatPeer.id, access_hash: linkedChatPeer.access_hash },
@@ -260,158 +257,220 @@ async function findDiscussionMessageId(linkedChatPeer, channelPeer, channelPostI
   }
 }
 
-async function sendCommentToPost(channelGroupId, target, comment) {
+async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
-    const { peer: channelPeer } = await ensureMembership(channelGroupId);
-    
-    let channelPostId;
-    if (target === '$') {
-      channelPostId = await getLastChannelPost(channelPeer);
-      console.log(`🔍 Last post ID: ${channelPostId}`);
-    } else if (target === '*') {
-      channelPostId = await getRandomChannelPost(channelPeer);
-      console.log(`🔍 Random post ID: ${channelPostId}`);
-    }
+    // 1️⃣ Отримуємо ID останнього поста каналу
+    const channelPostId = await getLastChannelPost(channelPeer);
+    console.log(`📰 Last channel post ID: ${channelPostId}`);
 
-    // Ensure membership in linked chat
+    // 2️⃣ Отримуємо linked discussion chat
     const linkedChat = await getLinkedChatPeer(channelPeer);
+
+    // 3️⃣ Гарантуємо участь у linked chat
     if (linkedChat.peer.username) {
       await ensureMembership(`@${linkedChat.peer.username}`);
-    } else if (linkedChat.peer.id && linkedChat.access_hash) {
-      await ensureMembership(`${linkedChat.peer.id}:${linkedChat.access_hash}`);
+    } else if (linkedChat.peer.id && linkedChat.peer.access_hash) {
+      await ensureMembership(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
     } else {
-      const fullLinkedChat = await mtprotoCall('channels.getFullChannel', {
-        channel: { 
-          _: 'inputChannel', 
-          channel_id: linkedChat.peer.id, 
-          access_hash: linkedChat.peer.access_hash 
-        }
-      });
-      const inviteLink = fullLinkedChat.full_chat?.exported_invite?.link;
-      if (!inviteLink) throw new Error('No invite link for linked chat');
-      const inviteHash = extractInviteHash(inviteLink);
-      if (!inviteHash) throw new Error('Failed to extract invite hash');
-      await ensureMembership(inviteHash);
+      throw new Error('Invalid linked chat peer');
     }
 
-    const discussionMsgId = await findDiscussionMessageId(linkedChat.peer, channelPeer, channelPostId);
+    // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
+    const discussionRootId = await findDiscussionMessageId(
+      linkedChat.peer,
+      channelPeer,
+      channelPostId
+    );
+
+    if (!discussionRootId) {
+      throw new Error('Discussion root not found for last channel post');
+    }
+
+    console.log(`🧵 Discussion root ID: ${discussionRootId}`);
+
+    let targetMessageId;
+
+    // 5️⃣ Обробка target
+    if (target === '$' || target === '*') {
+      // Беремо історію коментарів
+      const history = await mtprotoCall('messages.getHistory', {
+        peer: {
+          _: 'inputPeerChannel',
+          channel_id: linkedChat.peer.id,
+          access_hash: linkedChat.peer.access_hash,
+        },
+        limit: 100,
+      });
+
+      // 🔒 ТІЛЬКИ коментарі цього поста (перший рівень)
+      const postComments = (history.messages || []).filter(m =>
+        m._ === 'message' &&
+        m.id &&
+        m.reply_to &&
+        m.reply_to.reply_to_msg_id === discussionRootId
+      );
+
+      if (!postComments.length) {
+        throw new Error('No comments found for last post');
+      }
+
+      if (target === '$') {
+        targetMessageId = postComments[0].id;
+        console.log(`💬 Last comment ID: ${targetMessageId}`);
+      } else {
+        const rnd = Math.floor(Math.random() * postComments.length);
+        targetMessageId = postComments[rnd].id;
+        console.log(`🎲 Random comment ID: ${targetMessageId}`);
+      }
+    } else {
+      // 6️⃣ Reply без target → reply до discussion root
+      targetMessageId = discussionRootId;
+      console.log(`↩️ Replying to discussion root`);
+    }
+
+    // 7️⃣ Відправляємо коментар
     await mtprotoCall('messages.sendMessage', {
-      peer: { 
-        _: 'inputPeerChannel', 
-        channel_id: linkedChat.peer.id, 
-        access_hash: linkedChat.peer.access_hash 
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: linkedChat.peer.id,
+        access_hash: linkedChat.peer.access_hash,
       },
       message: comment,
       reply_to: {
         _: 'inputReplyToMessage',
-        reply_to_msg_id: discussionMsgId,
+        reply_to_msg_id: targetMessageId,
       },
-      random_id: BigInt(Math.floor(Math.random() * 1e18)).toString(),
-    });    
+      random_id: (
+        BigInt(Date.now()) * 1000n +
+        BigInt(Math.floor(Math.random() * 1000))
+      ).toString(),
+    });
+
+    console.log(`✅ Comment sent (reply_to=${targetMessageId})`);
   } catch (error) {
-    console.error(`❌ Ultimate error:`, error);
+    console.error('❌ sendCommentToPost error:', error);
   }
 }
 
-async function reactToComment(channelGroupId, target, reaction) {
+async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction) {
   try {
-    const { peer: channelPeer } = await ensureMembership(channelGroupId);
+    /** 1️⃣ Отримуємо linked chat */
     const linkedChat = await getLinkedChatPeer(channelPeer);
 
-    // Ensure membership in linked chat
+    /** 2️⃣ Гарантуємо участь */
     if (linkedChat.peer.username) {
       await ensureMembership(`@${linkedChat.peer.username}`);
-    } else if (linkedChat.peer.id && linkedChat.access_hash) {
-      await ensureMembership(`${linkedChat.peer.id}:${linkedChat.access_hash}`);
-    } else {
-      const fullLinkedChat = await mtprotoCall('channels.getFullChannel', {
-        channel: { 
-          _: 'inputChannel', 
-          channel_id: linkedChat.peer.id, 
-          access_hash: linkedChat.peer.access_hash 
-        }
-      });
-      const inviteLink = fullLinkedChat.full_chat?.exported_invite?.link;
-      if (!inviteLink) throw new Error('No invite link for linked chat');
-      const inviteHash = extractInviteHash(inviteLink);
-      if (!inviteHash) throw new Error('Failed to extract invite hash');
-      await ensureMembership(inviteHash);
+    } else if (linkedChat.peer.id && linkedChat.peer.access_hash) {
+      await ensureMembership(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
     }
 
-    let actualMsgId ;
-    if (target === '$') {
-      const history = await mtprotoCall('messages.getHistory', {
-        peer: { _: 'inputPeerChannel', channel_id: linkedChat.peer.id, access_hash: linkedChat.peer.access_hash },
-        limit: 1,
-      });
-
-      const validMessages = (history.messages || []).filter(
-        (m) => m?.id && m._ === 'message'
-      );
-
-      if (!validMessages.length) {
-        throw new Error('No valid messages to reply to.');
-      }
-
-      actualMsgId = validMessages[0]?.id;
-      if (!actualMsgId) throw new Error('No comments found');
-      console.log(`🔍 Last comment ID: ${actualMsgId}`);
-    } else if (target === '*') {
-      const history = await mtprotoCall('messages.getHistory', {
-        peer: { _: 'inputPeerChannel', channel_id: linkedChat.peer.id, access_hash: linkedChat.peer.access_hash },
-        limit: 20,
-      });
-
-      const validMessages = (history.messages || []).filter(
-        (m) => m?.id && m._ === 'message'
-      );
-
-      if (!validMessages.length) {
-        throw new Error('No valid messages to reply to.');
-      }
-
-      actualMsgId = validMessages[getRandomNumber(0, validMessages.length - 1)]?.id;
-      if (!actualMsgId) throw new Error('No comments found');
-      console.log(`🔍 Last comment ID: ${actualMsgId}`);
-    }
-
-    await mtprotoCall('messages.sendReaction', {
-      peer: { _: 'inputPeerChannel', channel_id: linkedChat.peer.id, access_hash: linkedChat.peer.access_hash },
-      msg_id: actualMsgId,
-      reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
-      big: false,
+    /** 3️⃣ Отримуємо ОСТАННІЙ ПОСТ каналу */
+    const channelHistory = await mtprotoCall('messages.getHistory', {
+      peer: channelPeer,
+      limit: 1
     });
-    
-    console.log(`✅ Reacted to comment ${actualMsgId} in ${channelGroupId}`);
+
+    const lastPost = channelHistory.messages?.find(m => m._ === 'message' && m.id);
+    if (!lastPost) throw new Error('No channel posts found');
+
+    const postId = lastPost.id;
+    console.log(`📰 Last channel post ID: ${postId}`);
+
+    /** 4️⃣ Отримуємо коментарі ТІЛЬКИ до цього поста */
+    const commentsHistory = await mtprotoCall('messages.getHistory', {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: linkedChat.peer.id,
+        access_hash: linkedChat.peer.access_hash
+      },
+      limit: 50
+    });
+
+    const comments = (commentsHistory.messages || []).filter(m =>
+      m._ === 'message' &&
+      m.id &&
+      m.reply_to?.reply_to_msg_id === postId
+    );
+
+    if (!comments.length) {
+      throw new Error('No comments for last post');
+    }
+
+    /** 5️⃣ Вибір target */
+    let targetMessageId;
+
+    if (target === '$') {
+      // останній коментар
+      targetMessageId = comments[0].id;
+    } else if (target === '*') {
+      // випадковий коментар
+      targetMessageId = comments[getRandomNumber(0, comments.length - 1)].id;
+    } else {
+      throw new Error('Invalid target');
+    }
+
+    console.log(`🎯 Reacting to comment ID: ${targetMessageId}`);
+
+    /** 6️⃣ Відправка реакції */
+    await mtprotoCall('messages.sendReaction', {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: linkedChat.peer.id,
+        access_hash: linkedChat.peer.access_hash
+      },
+      msg_id: targetMessageId,
+      reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
+      big: false
+    });
+
+    console.log(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
   } catch (error) {
-    console.error(`❌ Comment react error ${msgId}:`, error);
+    console.error('❌ Comment react error:', error);
   }
+}
+
+function getPeerType(peer) {
+  if (!peer || !peer._) return 'unknown';
+
+  if (peer._ === 'chat') {
+    return 'group';
+  }
+
+  if (peer._ === 'channel') {
+    return peer.megagroup ? 'supergroup' : 'channel';
+  }
+
+  return 'unknown';
 }
 
 async function processGroups(requestCode) {
   try { 
     await authenticate(requestCode);
+
+    IS_RUNNING = true;
+    while (IS_RUNNING) {
+      const data = readData();
+      for (const group of data) {
+        const { id, comment, reaction, prompt, target } = group;
+
+        const { peer } = await ensureMembership(id);
+        const type = getPeerType(peer);
+
+        if (type == 'group' || type == 'supergroup') {
+          if (comment) await sendMessage(peer, id, comment, prompt, target);
+          if (reaction) await reactToMessage(peer, id, reaction, target || '*');
+        } else if (type == 'channel') {
+          if (comment) await sendCommentToPost(peer, id, target, comment, prompt);      
+          if (reaction) await reactToCommentOfPost(peer, id, target, reaction);
+        }      
+
+      }
+      await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 1000);
+    }  
   } catch (err) {
     console.log(err);
     return;
-  }  
-
-  IS_RUNNING = true;
-  while (IS_RUNNING) {
-    const data = readData();
-    for (const group of data) {
-      const { id, comment, reaction, prompt, target } = group;
-      
-      if (comment) await sendMessage(id, comment, prompt, target);
-      if (reaction) await reactToMessage(id, reaction, target || '*');
-      
-      /*
-        await sendCommentToPost(id, target, comment);      
-        await reactToComment(id, target, reaction);
-      */              
-    }
-    await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 1000);
-  }  
+  }    
 }
 
 function stopPosting()
