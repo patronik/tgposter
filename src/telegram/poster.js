@@ -457,35 +457,11 @@ async function processGroups(requestCode) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment) {
-            try {
-              await sendMessage(peer, id, comment, target, prompt);
-            } catch (err) {
-              console.log(err);
-            }
-          }
-          if (reaction) {
-            try {
-              await reactToMessage(peer, id, reaction, target || '*');
-            } catch (err) {
-              console.log(err);
-            }
-          }          
+          if (comment) await sendMessage(peer, id, comment, target, prompt);            
+          if (reaction) await reactToMessage(peer, id, reaction, target || '*');                     
         } else if (type == 'channel') {
-          if (comment) {
-            try {
-              await sendCommentToPost(peer, id, target, comment, prompt);      
-            } catch (err) {
-              console.log(err);
-            }
-          } 
-          if (reaction) {
-            try {
-              await reactToCommentOfPost(peer, id, target, reaction);     
-            } catch (err) {
-              console.log(err);
-            }
-          } 
+          if (comment) await sendCommentToPost(peer, id, target, comment, prompt);                
+          if (reaction) await reactToCommentOfPost(peer, id, target, reaction);                           
         }      
 
       }
