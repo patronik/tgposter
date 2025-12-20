@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const { readData, writeData, readConfig, writeConfig, getConfigItem } = require('./config');
-const { processGroups, stopPosting } = require('./telegram/poster');
+const { processGroups, getIsRunning, setIsRunning } = require('./telegram/poster');
 const path = require('node:path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -98,12 +98,17 @@ ipcMain.handle('set-config', (_, config) => {
   return config;
 });
 
-ipcMain.handle('process-groups', (_) => {
+ipcMain.handle('start', (_) => {
+  setIsRunning(true);  
   processGroups(requestCode);  
 });
 
-ipcMain.handle('stop-posting', (_) => {
-  stopPosting();  
+ipcMain.handle('stop', (_) => {
+  setIsRunning(false);  
+});
+
+ipcMain.handle('get-is-running', () => {
+  return getIsRunning();
 });
 
 /**

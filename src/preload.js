@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
   onCodeRequest: (callback) => ipcRenderer.on('request-code', callback),
   submitCode: (code) => ipcRenderer.invoke('submit-code', code),
   // control
-  processGroups: () => ipcRenderer.invoke('process-groups'),
-  stopPosting: () => ipcRenderer.invoke('stop-posting'),
+  start: () => ipcRenderer.invoke('start'),
+  stop: () => ipcRenderer.invoke('stop'),
+  getIsRunning: () => ipcRenderer.invoke('get-is-running')
 });

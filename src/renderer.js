@@ -1,28 +1,18 @@
 let waitingForCode = false;
-let isRunning = false;
-
-function toggleSpinner() {  
-  const spinner = document.getElementById('mySpinner');
-  if (spinner.classList.contains('paused')) {
-    spinner.classList.remove('paused');
-  } else {
-    spinner.classList.add('paused');
-  }
-}
+const spinner = document.getElementById('mySpinner');
 
 const actionBtn = document.getElementById('action_btn');
 actionBtn.onclick = async () => {
-  try {
+  try {        
+    const isRunning = await window.api.getIsRunning();  
     if (!isRunning) {
-      await window.api.processGroups();      
-      toggleSpinner();
+      await window.api.start();      
+      spinner.classList.remove('paused');
       actionBtn.innerHTML = 'Stop';
-      isRunning = true;
     } else {
-      await window.api.stopPosting();      
-      toggleSpinner();      
+      await window.api.stop();      
+      spinner.classList.add('paused');
       actionBtn.innerHTML = 'Start';
-      isRunning = false;
     }   
   } catch (err) {
     appStatus.textContent = err.message;
@@ -54,6 +44,12 @@ sendCodeBtn.onclick = async () => {
 };
 
 async function load() {
+  const isRunning = await window.api.getIsRunning(); 
+  if (isRunning) {
+    spinner.classList.remove('paused');
+    actionBtn.innerHTML = 'Stop';
+  }
+
   const items = await window.api.getItems();
   const tbody = document.getElementById('list');
   tbody.innerHTML = '';

@@ -4,6 +4,14 @@ const { sleep, getRandomNumber } = require('../utils');
 
 let IS_RUNNING = false;
 
+function getIsRunning() {
+  return IS_RUNNING;
+}
+
+function setIsRunning(value) {
+  IS_RUNNING = value;
+}
+
 async function mtprotoCall(method, data) {
   const result = await mtproto.call(method, data);
   await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 1000);
@@ -450,9 +458,8 @@ function getPeerType(peer) {
 async function processGroups(requestCode) {
   try { 
     await authenticate(requestCode);
-
-    IS_RUNNING = true;
-    while (IS_RUNNING) {
+    
+    while (getIsRunning()) {
       const data = readData();
       for (const group of data) {
         const { id, comment, reaction, prompt, target } = group;
@@ -477,11 +484,6 @@ async function processGroups(requestCode) {
   }    
 }
 
-function stopPosting()
-{
-  console.log('Stop signal received.')
-  IS_RUNNING = false;
-}
-
 module.exports.processGroups = processGroups;
-module.exports.stopPosting = stopPosting;
+module.exports.getIsRunning = getIsRunning;
+module.exports.setIsRunning = setIsRunning;
