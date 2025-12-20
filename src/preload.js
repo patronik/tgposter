@@ -17,5 +17,7 @@ contextBridge.exposeInMainWorld('api', {
   // control
   start: () => ipcRenderer.invoke('start'),
   stop: () => ipcRenderer.invoke('stop'),
-  getIsRunning: () => ipcRenderer.invoke('get-is-running')
+  getIsRunning: () => ipcRenderer.invoke('get-is-running'),
+  // info
+  onLog: (callback) => ipcRenderer.on('log', (_, data) => callback(data)),
 });

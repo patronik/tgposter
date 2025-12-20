@@ -3,6 +3,7 @@ const { mtproto, authenticate } = require(`./mtproto`);
 const { sleep, getRandomNumber } = require('../utils');
 
 let IS_RUNNING = false;
+let logger = function (data) {};
 
 function getIsRunning() {
   return IS_RUNNING;
@@ -199,8 +200,10 @@ async function sendMessage(peer, groupid, message, target, prompt) {
     await mtprotoCall('messages.sendMessage', params);
 
     console.log(`✅ Message sent to ${groupid}`);
+    logger(`✅ Message sent to ${groupid}`);
   } catch (error) {
     console.error(`❌ Error sending to ${groupid}:`, error);
+    logger(`❌ Error sending to ${groupid}: ${JSON.stringify(error)}`);
   }
 }
 
@@ -238,8 +241,10 @@ async function reactToMessage(peer, groupid, reaction, target) {
       big: false,
     });
     console.log(`✅ Reacted to message https://t.me/${(groupid.replace('@', ''))}/${targetMessage.id} in ${groupid}`);
+    logger(`✅ Reacted to message https://t.me/${(groupid.replace('@', ''))}/${targetMessage.id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
+    logger(`❌ React error in ${groupid}: ${JSON.stringify(error)}`);
   }
 }
 
@@ -355,8 +360,10 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     });
 
     console.log(`✅ Comment sent (reply_to=${targetMessageId}) in ${channelGroupId}`);
+    logger(`✅ Comment sent (reply_to=${targetMessageId}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
+    logger(`❌ sendCommentToPost error: ${JSON.stringify(error)}`);
   }
 }
 
@@ -436,8 +443,10 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     });
 
     console.log(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
+    logger(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ Comment react error:', error);
+    logger(`❌ Comment react error: ${JSON.stringify(error)}`);
   }
 }
 
@@ -455,9 +464,10 @@ function getPeerType(peer) {
   return 'unknown';
 }
 
-async function processGroups(requestCode) {
-  try { 
-    await authenticate(requestCode);
+async function processGroups(requestCode, externalLogger) {
+  try {     
+    logger = externalLogger;
+    await authenticate(requestCode);    
     
     while (getIsRunning()) {
       const data = readData();

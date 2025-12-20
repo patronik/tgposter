@@ -55,6 +55,9 @@ app.on('window-all-closed', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
 
+function externalLogger(data) {
+  mainWindow.webContents.send('log', data);
+}
 
 ipcMain.handle('get-items', () => {
   return readData();
@@ -100,7 +103,7 @@ ipcMain.handle('set-config', (_, config) => {
 
 ipcMain.handle('start', (_) => {
   setIsRunning(true);  
-  processGroups(requestCode);  
+  processGroups(requestCode, externalLogger);  
 });
 
 ipcMain.handle('stop', (_) => {

@@ -43,6 +43,11 @@ sendCodeBtn.onclick = async () => {
   }
 };
 
+// on log event
+window.api.onLog((data) => {
+  console.log(data);
+});
+
 async function load() {
   const isRunning = await window.api.getIsRunning(); 
   if (isRunning) {
