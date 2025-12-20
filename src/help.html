@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Help</title>
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Help</h2>
+    <a href="index.html">&#x2302; Home</a>
+    <a href="configuration.html">⚙ Configuration</a>  
+    <section class="help-section">
+        <h3>Для роботи із програмою, вам потрібно зробити наступні <a href="configuration.html">налаштування</a>:</h3>
+        <ul style="list-style-type: none;">
+            <li><b>TELEGRAM_PHONE_NUM</b> - телефон вашого акаунту в Телеграм</li>
+            <li><b>TELEGRAM_API_ID</b> - айді вашого застосунку в Телеграм</li>
+            <li><b>TELEGRAM_API_HASH</b> - хеш вашого застосунку в Телеграм</li>
+            <li><b>TELEGRAM_ITERATION_DELAY</b> - пауза в секундах між циклами постінгу (потрібно для уникнення блокування)</li>
+            <li><b>TELEGRAM_API_DELAY</b> - пауза в секундах між викликами API (потрібно для уникнення блокування)</li>
+        </ul>        
+        <img style="width:1040px; height:377px;" src="images/settings.png" alt="Settings">        
+    </section>    
+
+    <section class="help-section">
+        <h3>🔐 Як отримати Telegram API ID та API Hash</h3>
+
+        <ol class="help-steps">
+            <li>
+            <strong>Перейдіть на сайт Telegram для розробників</strong><br>
+            <a href="https://my.telegram.org" target="_blank" rel="noopener">
+                https://my.telegram.org
+            </a>
+            </li>
+
+            <li>
+            <strong>Увійдіть за номером телефону</strong>
+            <ul>
+                <li>Введіть номер у міжнародному форматі (наприклад, <code>+380...</code>)</li>
+                <li>Отримайте код підтвердження у Telegram</li>
+                <li>Підтвердіть вхід</li>
+            </ul>
+            </li>
+
+            <li>
+            <strong>Виберіть пункт <code>API development tools</code></strong>
+            </li>
+
+            <li>
+            <strong>Заповніть форму створення застосунку</strong>
+            <ul>
+                <li><strong>App title</strong> — будь-яка назва (наприклад, <em>My App</em>)</li>
+                <li><strong>Short name</strong> — коротка назва латиницею</li>
+                <li><strong>Platform</strong> — <em>Desktop</em> або <em>Other</em></li>
+                <li><strong>URL</strong> — можна залишити порожнім</li>
+            </ul>
+            </li>
+
+            <li>
+            <strong>Після збереження Ви отримаєте:</strong>
+            <ul>
+                <li><code>api_id</code> — числовий ідентифікатор</li>
+                <li><code>api_hash</code> — секретний ключ</li>
+            </ul>
+            </li>
+        </ol>       
+    </section>    
+  </div>
+  
+</body>
+</html>
