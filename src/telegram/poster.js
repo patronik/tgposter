@@ -145,7 +145,7 @@ async function getRandomChannelPost(channelPeer) {
   return history.messages[getRandomNumber(0, history.messages.length - 1)].id;
 }
 
-async function sendMessage(peer, groupid, message, prompt, target) {
+async function sendMessage(peer, groupid, message, target, prompt) {
   try {  
     const params = {
       peer: {
@@ -457,7 +457,7 @@ async function processGroups(requestCode) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment) await sendMessage(peer, id, comment, prompt, target);
+          if (comment) await sendMessage(peer, id, comment, target, prompt);
           if (reaction) await reactToMessage(peer, id, reaction, target || '*');
         } else if (type == 'channel') {
           if (comment) await sendCommentToPost(peer, id, target, comment, prompt);      
