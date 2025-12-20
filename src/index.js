@@ -103,11 +103,13 @@ ipcMain.handle('set-config', (_, config) => {
 
 ipcMain.handle('start', (_) => {
   setIsRunning(true);  
+  externalLogger(`started`);
   processGroups(requestCode, externalLogger);  
 });
 
 ipcMain.handle('stop', (_) => {
   setIsRunning(false);  
+  externalLogger(`stopped`);
 });
 
 ipcMain.handle('get-is-running', () => {
