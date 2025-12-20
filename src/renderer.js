@@ -77,11 +77,7 @@ async function load() {
 }
 
 async function add() {
-  const id = document.getElementById('id').value;
-  const item = await window.api.getItem(id);
-  if (item) {
-    return;
-  }
+  const id = document.getElementById('id').value;  
   const comment = document.getElementById('comment').value;
   const reaction = document.getElementById('reaction').value;
   const prompt = document.getElementById('prompt').value;
