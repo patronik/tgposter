@@ -19,27 +19,27 @@
     
     <div class="form-grid">
       <div class="form-group">
-        <label for="id">ID</label>
-        <input id="id" placeholder="Enter unique ID" />
+        <label for="id">Група/Канал</label>
+        <input id="id"/>
       </div>
       
       <div class="form-group">
-        <label for="comment">Comment</label>
-        <input id="comment" placeholder="Enter comment" />
+        <label for="comment">Повідомлення</label>
+        <input id="comment"/>
       </div>
       
       <div class="form-group">
-        <label for="reaction">Reaction</label>
-        <input id="reaction" placeholder="Enter reaction" />
+        <label for="reaction">Реакція</label>
+        <input id="reaction" />
       </div>
       
       <div class="form-group">
-        <label for="prompt">Prompt</label>        
-        <textarea id="prompt" placeholder="Enter prompt"></textarea>
+        <label for="prompt">Промт</label>        
+        <textarea id="prompt"></textarea>
       </div>
 
       <div class="form-group">
-        <label for="target">Target</label>
+        <label for="target">Ціль</label>
         <select id="target">
           <option value="">звичайне повідомлення</option>
           <option value="$">реплай до останнього</option>
@@ -69,12 +69,12 @@
     <table class="data-grid" id="data-table">
       <thead>
         <tr>
-          <th>ID</th>
-          <th>Comment</th>
-          <th>Reaction</th>          
-          <th>Prompt</th>          
-          <th>Target</th>
-          <th width="150">Actions</th>
+          <th>Група/Канал</th>
+          <th>Повідомлення</th>
+          <th>Реакція</th>          
+          <th>Промт</th>          
+          <th>Ціль</th>
+          <th width="150">Дії</th>
         </tr>
       </thead>
       <tbody id="list">
