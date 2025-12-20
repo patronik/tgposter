@@ -346,7 +346,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       ).toString(),
     });
 
-    console.log(`✅ Comment sent (reply_to=${targetMessageId})`);
+    console.log(`✅ Comment sent (reply_to=${targetMessageId}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
   }
@@ -479,6 +479,7 @@ async function processGroups(requestCode) {
 
 function stopPosting()
 {
+  console.log('Stop signal received.')
   IS_RUNNING = false;
 }
 
