@@ -366,7 +366,11 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     /** 3️⃣ Отримуємо ОСТАННІЙ ПОСТ каналу */
     const channelHistory = await mtprotoCall('messages.getHistory', {
-      peer: channelPeer,
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: channelPeer.id,
+        access_hash: channelPeer.access_hash
+      },
       limit: 1
     });
 
