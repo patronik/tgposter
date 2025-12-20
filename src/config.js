@@ -2,9 +2,6 @@ const { app } = require('electron');
 const path = require('node:path');
 const fs = require('fs');
 
-let config = {};
-let initialized = false;
-
 const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 
@@ -19,20 +16,15 @@ function writeData(data) {
 
 function readConfig() {
   if (!fs.existsSync(CONFIG_FILE)) return config;
-  config = JSON.parse(fs.readFileSync(CONFIG_FILE));
-  initialized = true;
-  return config;
+  return JSON.parse(fs.readFileSync(CONFIG_FILE));  
 }
 
 function writeConfig(config) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
-  config = JSON.parse(fs.readFileSync(CONFIG_FILE));
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));  
 }
 
 function getConfigItem(key) { 
-  if (!initialized) {
-    readConfig();
-  }
+  const config = readConfig();
   return config[key];
 };
 
