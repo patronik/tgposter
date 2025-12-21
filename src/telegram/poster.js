@@ -166,7 +166,8 @@ async function sendMessage(peer, groupid, message, target, prompt) {
       random_id: BigInt(Math.floor(Math.random() * 1e18)).toString(),
     };
 
-    if (target) {
+    // reply logic
+    if (target === '*' || target === '$') {
       const history = await mtprotoCall('messages.getHistory', {
         peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
         limit: 10,
@@ -185,16 +186,13 @@ async function sendMessage(peer, groupid, message, target, prompt) {
         targetMessage = validMessages[0];
       } else if (target == '*')  {
         targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
-        if (!targetMessage?.id) {
-          throw new Error('Random message not found.')
-        }
-      } else {
-        throw new Error(`Unsupported target "${target}".`);
-      }      
+      }   
 
       params.reply_to_msg_id = targetMessage.id;
-
-      // TODO implement replying with AI (if prompt is provided)
+      
+      if (prompt) {
+        // reply with AI 
+      }
     }
 
     await mtprotoCall('messages.sendMessage', params);
@@ -227,11 +225,8 @@ async function reactToMessage(peer, groupid, reaction, target) {
       targetMessage = validMessages[0];
     } else if (target == '*')  {
       targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
-      if (!targetMessage?.id) {
-        throw new Error('Random message not found.')
-      }
     } else {
-      throw new Error(`Unsupported target "${target}".`);
+      targetMessage = validMessages[validMessages.length - 1];
     }
 
     await mtprotoCall('messages.sendReaction', {
@@ -301,44 +296,45 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
     console.log(`🧵 Discussion root ID: ${discussionRootId}`);
 
-    let targetMessageId;
-
     // 5️⃣ Обробка target
-    if (target === '$' || target === '*') {
-      // Беремо історію коментарів
-      const history = await mtprotoCall('messages.getHistory', {
-        peer: {
-          _: 'inputPeerChannel',
-          channel_id: linkedChat.peer.id,
-          access_hash: linkedChat.peer.access_hash,
-        },
-        limit: 100,
-      });
+    let targetMessageId;
+    // Беремо історію коментарів
+    const history = await mtprotoCall('messages.getHistory', {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: linkedChat.peer.id,
+        access_hash: linkedChat.peer.access_hash,
+      },
+      limit: 100,
+    });
 
-      // 🔒 ТІЛЬКИ коментарі цього поста (перший рівень)
-      const postComments = (history.messages || []).filter(m =>
-        m._ === 'message' &&
-        m.id &&
-        m.reply_to &&
-        m.reply_to.reply_to_msg_id === discussionRootId
-      );
+    // 🔒 ТІЛЬКИ коментарі цього поста (перший рівень)
+    const postComments = (history.messages || []).filter(m =>
+      m._ === 'message' &&
+      m.id &&
+      m.reply_to &&
+      m.reply_to.reply_to_msg_id === discussionRootId
+    );
 
-      if (!postComments.length) {
-        throw new Error('No comments found for last post');
-      }
+    if (!postComments.length) {
+      throw new Error('No comments found for last post');
+    }
 
-      if (target === '$') {
-        targetMessageId = postComments[0].id;
-        console.log(`💬 Last comment ID: ${targetMessageId}`);
-      } else {
-        const rnd = Math.floor(Math.random() * postComments.length);
-        targetMessageId = postComments[rnd].id;
-        console.log(`🎲 Random comment ID: ${targetMessageId}`);
-      }
+    if (target === '$') {
+      targetMessageId = postComments[0].id;
+      console.log(`💬 Last comment ID: ${targetMessageId}`);
+    } else if (target === '*') {
+      targetMessageId = postComments[getRandomNumber(0, postComments.length - 1)].id;
+      console.log(`🎲 Random comment ID: ${targetMessageId}`);
     } else {
-      // 6️⃣ Reply без target → reply до discussion root
       targetMessageId = discussionRootId;
-      console.log(`↩️ Replying to discussion root`);
+      console.log(`💬 Root ID: ${targetMessageId}`);
+    }
+
+    console.log(`🎯 Replying to message ID: ${targetMessageId}`);
+
+    if (prompt) {
+      // reply with AI
     }
 
     // 7️⃣ Відправляємо коментар
@@ -427,13 +423,14 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     /** 6️⃣ Вибір target */
     let targetMessageId;
     if (target === '$') {
-      // останній коментар
       targetMessageId = comments[0].id;
+      console.log(`💬 Last comment ID: ${targetMessageId}`);
     } else if (target === '*') {
-      // випадковий коментар
       targetMessageId = comments[getRandomNumber(0, comments.length - 1)].id;
+      console.log(`💬 Random comment ID: ${targetMessageId}`);
     } else {
-      throw new Error('Invalid target');
+      targetMessageId = discussionRootId;
+      console.log(`💬 Root ID: ${targetMessageId}`);
     }
 
     console.log(`🎯 Reacting to comment ID: ${targetMessageId}`);
@@ -486,10 +483,10 @@ async function processGroups(requestCode, externalLogger) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment) await sendMessage(peer, id, comment, target, prompt);            
-          if (reaction) await reactToMessage(peer, id, reaction, target || '*');                     
+          if (comment || prompt) await sendMessage(peer, id, comment, target, prompt);            
+          if (reaction) await reactToMessage(peer, id, reaction, target);                     
         } else if (type == 'channel') {
-          if (comment) await sendCommentToPost(peer, id, target, comment, prompt);                
+          if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt);                
           if (reaction) await reactToCommentOfPost(peer, id, target, reaction);                           
         }      
 
