@@ -237,8 +237,8 @@ async function reactToMessage(peer, groupid, reaction, target) {
       reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
       big: false,
     });
-    console.log(`✅ Reacted to message https://t.me/${(groupid.replace('@', ''))}/${targetMessage.id} in ${groupid}`);
-    logger(`✅ Reacted to message https://t.me/${(groupid.replace('@', ''))}/${targetMessage.id} in ${groupid}`);
+    console.log(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
+    logger(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
     logger(`❌ React error in ${groupid}: ${JSON.stringify(error)}`);
