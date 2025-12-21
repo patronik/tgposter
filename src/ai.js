@@ -16,6 +16,10 @@ const queryLLM = async (prompt) => {
       model: 'llama-3.3-70b-versatile',  
       messages: [
         {
+            "role": "system",
+            "content": "Ви — асистент. Відповідайте ВИКЛЮЧНО українською мовою. Не використовуйте жодних інших мов або ієрогліфів."
+        },
+        {
           role: "user",
           content: prompt
         }
