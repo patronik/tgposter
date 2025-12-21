@@ -13,7 +13,7 @@ const queryLLM = async (prompt) => {
       'Authorization': `Bearer ${getConfigItem('GROQ_API_KEY')}`, 
     },
     body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',  
+      model: getConfigItem('GROQ_API_MODEL') || 'llama-3.3-70b-versatile',  
       messages: [
         {
             "role": "system",
