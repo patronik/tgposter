@@ -14,11 +14,7 @@ const queryLLM = async (prompt) => {
     },
     body: JSON.stringify({
       model: 'llama-3.3-70b-versatile',  
-      messages: [
-        {
-            "role": "system",
-            "content": "Ви — асистент. Відповідайте ВИКЛЮЧНО українською мовою. Не використовуйте жодних інших мов або ієрогліфів."
-        },
+      messages: [  
         {
           role: "user",
           content: prompt
