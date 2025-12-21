@@ -1,13 +1,3 @@
-const targetSelect = document.getElementById('target');
-targetSelect.addEventListener('change', function() {
-  const promptInput = document.getElementById('prompt');
-  if (['*', '$'].includes(this.value)) {
-    promptInput.disabled = false;
-  } else {
-    promptInput.disabled = true;
-  }  
-});
-
 let waitingForCode = false;
 const spinner = document.getElementById('mySpinner');
 
