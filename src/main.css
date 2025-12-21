@@ -56,6 +56,12 @@ h2 {
   align-items: center;
 }
 
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 210px;
+}
+
 label {
   font-weight: 600;
   margin-bottom: 5px;
@@ -75,12 +81,6 @@ input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.25);
-}
-
-.button-group {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
 }
 
 button {

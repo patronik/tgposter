@@ -34,24 +34,25 @@
       </div>
       
       <div class="form-group">
-        <label for="prompt">Промт</label>        
+        <label for="prompt">ШІ Промт</label>        
         <textarea disabled id="prompt"></textarea>
       </div>
 
       <div class="form-group">
-        <label for="target">Ціль</label>
+        <label for="target">Реплай</label>
         <select id="target">
           <option value="">без реплая</option>
           <option value="$">реплай до останнього</option>
           <option value="*">реплай до рандомного</option>
-        </select>
+        </select>        
+      </div>   
+      
+      <div class="button-group">
+        <button id="add_btn" onclick="add()">Add</button>
+        <button id="save_btn" style="display: none;" onclick="save()">Save</button>
       </div>
-    </div>
-    
-    <div class="button-group">
-      <button id="add_btn" onclick="add()">Add</button>
-      <button id="save_btn" style="display: none;" onclick="save()">Save</button>
-    </div>
+          
+    </div>  
   </div>
 
     <div class="container">    
@@ -72,8 +73,8 @@
           <th>Група/Канал</th>
           <th>Повідомлення</th>
           <th>Реакція</th>          
-          <th>Промт</th>          
-          <th>Ціль</th>
+          <th>ШІ Промт</th>          
+          <th>Реплай</th>
           <th width="150">Дії</th>
         </tr>
       </thead>
