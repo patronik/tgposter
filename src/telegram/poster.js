@@ -411,7 +411,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
         channel_id: linkedChat.peer.id,
         access_hash: linkedChat.peer.access_hash
       },
-      limit: 50
+      limit: 100
     });
 
     const comments = (commentsHistory.messages || []).filter(m =>
