@@ -4,6 +4,7 @@ const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
 let IS_RUNNING = false;
+let TASK_COUNT = 0;
 let logger = function (data) {};
 
 function getIsRunning() {
@@ -144,15 +145,6 @@ async function getLastChannelPost(channelPeer) {
   });
   if (!history.messages.length) throw new Error('No posts found');
   return history.messages[0].id;
-}
-
-async function getRandomChannelPost(channelPeer) {
-  const history = await mtprotoCall('messages.getHistory', {
-    peer: { _: 'inputPeerChannel', channel_id: channelPeer.id, access_hash: channelPeer.access_hash },
-    limit: 100,
-  });
-  if (!history.messages.length) throw new Error('No posts found');
-  return history.messages[getRandomNumber(0, history.messages.length - 1)].id;
 }
 
 async function sendMessage(peer, groupid, message, target, prompt) {
@@ -474,6 +466,11 @@ function getPeerType(peer) {
 
 async function processGroups(requestCode, externalLogger) {
   try {     
+    if (TASK_COUNT > 0) {
+      // avoid running multiple tasks 
+      return;
+    }
+    TASK_COUNT++;
     logger = externalLogger;
     await authenticate(requestCode);    
     
@@ -499,6 +496,8 @@ async function processGroups(requestCode, externalLogger) {
   } catch (err) {
     console.log(err);
     return;
+  } finally {
+    TASK_COUNT--;
   }    
 }
 
