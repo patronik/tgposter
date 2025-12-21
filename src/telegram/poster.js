@@ -1,6 +1,7 @@
 const { readData, getConfigItem } = require('../config');
 const { mtproto, authenticate } = require(`./mtproto`);
 const { sleep, getRandomNumber } = require('../utils');
+const { queryLLM, LLMEnabled } = require('../ai');
 
 let IS_RUNNING = false;
 let logger = function (data) {};
@@ -190,8 +191,9 @@ async function sendMessage(peer, groupid, message, target, prompt) {
 
       params.reply_to_msg_id = targetMessage.id;
       
-      if (prompt) {
+      if (prompt && LLMEnabled()) {
         // reply with AI 
+        params.message = await queryLLM(`${prompt}. Повідомлення: "${targetMessage.message}"`);
       }
     }
 
@@ -243,22 +245,22 @@ async function reactToMessage(peer, groupid, reaction, target) {
   }
 }
 
-async function findDiscussionMessageId(linkedChatPeer, channelPeer, channelPostId) {
+async function findDiscussionMessage(linkedChatPeer, channelPeer, channelPostId) {
   try {
     const history = await mtprotoCall('messages.getHistory', {
       peer: { _: 'inputPeerChannel', channel_id: linkedChatPeer.id, access_hash: linkedChatPeer.access_hash },
       limit: 100,
     });
 
-    const discussionMsgId = history.messages.find(msg => 
+    const discussionMsg = history.messages.find(msg => 
       msg.fwd_from?.saved_from_peer?.channel_id === channelPeer.id &&
       msg.fwd_from?.saved_from_msg_id === channelPostId
     );
 
-    if (!discussionMsgId) {
+    if (!discussionMsg) {
       throw new Error('No discussion message found - maybe delayed?');
     }
-    return discussionMsgId.id;
+    return discussionMsg;
   } catch (error) {
     console.error('Discussion message search failed:', error);
     throw error;
@@ -284,20 +286,20 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     }
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
-    const discussionRootId = await findDiscussionMessageId(
+    const discussionRoot = await findDiscussionMessage(
       linkedChat.peer,
       channelPeer,
       channelPostId
     );
 
-    if (!discussionRootId) {
+    if (!discussionRoot.id) {
       throw new Error('Discussion root not found for last channel post');
     }
 
-    console.log(`🧵 Discussion root ID: ${discussionRootId}`);
+    console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
 
     // 5️⃣ Обробка target
-    let targetMessageId;
+    let targetMessage;
     // Беремо історію коментарів
     const history = await mtprotoCall('messages.getHistory', {
       peer: {
@@ -313,7 +315,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       m._ === 'message' &&
       m.id &&
       m.reply_to &&
-      m.reply_to.reply_to_msg_id === discussionRootId
+      m.reply_to.reply_to_msg_id === discussionRoot.id
     );
 
     if (!postComments.length) {
@@ -321,20 +323,21 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     }
 
     if (target === '$') {
-      targetMessageId = postComments[0].id;
-      console.log(`💬 Last comment ID: ${targetMessageId}`);
+      targetMessage = postComments[0];
+      console.log(`💬 Last comment ID: ${targetMessage.id}`);
     } else if (target === '*') {
-      targetMessageId = postComments[getRandomNumber(0, postComments.length - 1)].id;
-      console.log(`🎲 Random comment ID: ${targetMessageId}`);
+      targetMessage = postComments[getRandomNumber(0, postComments.length - 1)];
+      console.log(`🎲 Random comment ID: ${targetMessage.id}`);
     } else {
-      targetMessageId = discussionRootId;
-      console.log(`💬 Root ID: ${targetMessageId}`);
+      targetMessage = discussionRoot;
+      console.log(`💬 Root ID: ${targetMessage.id}`);
     }
 
-    console.log(`🎯 Replying to message ID: ${targetMessageId}`);
+    console.log(`🎯 Replying to message ID: ${targetMessage.id}`);
 
-    if (prompt) {
-      // reply with AI
+    if (prompt && LLMEnabled()) {
+      // reply with AI 
+      params.message = await queryLLM(`${prompt}. Повідомлення: "${targetMessage.message}"`);
     }
 
     // 7️⃣ Відправляємо коментар
@@ -347,7 +350,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       message: comment,
       reply_to: {
         _: 'inputReplyToMessage',
-        reply_to_msg_id: targetMessageId,
+        reply_to_msg_id: targetMessage.id,
       },
       random_id: (
         BigInt(Date.now()) * 1000n +
@@ -355,8 +358,8 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       ).toString(),
     });
 
-    console.log(`✅ Comment sent (reply_to=${targetMessageId}) in ${channelGroupId}`);
-    logger(`✅ Comment sent (reply_to=${targetMessageId}) in ${channelGroupId}`);
+    console.log(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
+    logger(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
     logger(`❌ sendCommentToPost error: ${JSON.stringify(error)}`);
@@ -390,13 +393,13 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     console.log(`📰 Last channel post ID: ${lastPost.id}`);
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
-    const discussionRootId = await findDiscussionMessageId(
+    const discussionRoot = await findDiscussionMessage(
       linkedChat.peer,
       channelPeer,
       lastPost.id
     );
 
-    if (!discussionRootId) {
+    if (!discussionRoot.id) {
       throw new Error('Discussion root not found for last channel post');
     }
 
@@ -413,7 +416,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     const comments = (commentsHistory.messages || []).filter(m =>
       m._ === 'message' &&
       m.id &&
-      m.reply_to?.reply_to_msg_id === discussionRootId
+      m.reply_to?.reply_to_msg_id === discussionRoot.id
     );
 
     if (!comments.length) {
@@ -429,7 +432,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       targetMessageId = comments[getRandomNumber(0, comments.length - 1)].id;
       console.log(`💬 Random comment ID: ${targetMessageId}`);
     } else {
-      targetMessageId = discussionRootId;
+      targetMessageId = discussionRoot.id;
       console.log(`💬 Root ID: ${targetMessageId}`);
     }
 
