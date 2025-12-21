@@ -391,11 +391,20 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     const lastPost = channelHistory.messages?.find(m => m._ === 'message' && m.id);
     if (!lastPost) throw new Error('No channel posts found');
+    console.log(`📰 Last channel post ID: ${lastPost.id}`);
 
-    const postId = lastPost.id;
-    console.log(`📰 Last channel post ID: ${postId}`);
+    // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
+    const discussionRootId = await findDiscussionMessageId(
+      linkedChat.peer,
+      channelPeer,
+      lastPost.id
+    );
 
-    /** 4️⃣ Отримуємо коментарі ТІЛЬКИ до цього поста */
+    if (!discussionRootId) {
+      throw new Error('Discussion root not found for last channel post');
+    }
+
+    /** 5️⃣ Отримуємо коментарі ТІЛЬКИ до цього поста */
     const commentsHistory = await mtprotoCall('messages.getHistory', {
       peer: {
         _: 'inputPeerChannel',
@@ -408,16 +417,15 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     const comments = (commentsHistory.messages || []).filter(m =>
       m._ === 'message' &&
       m.id &&
-      m.reply_to?.reply_to_msg_id === postId
+      m.reply_to?.reply_to_msg_id === discussionRootId
     );
 
     if (!comments.length) {
       throw new Error('No comments for last post');
     }
 
-    /** 5️⃣ Вибір target */
+    /** 6️⃣ Вибір target */
     let targetMessageId;
-
     if (target === '$') {
       // останній коментар
       targetMessageId = comments[0].id;
@@ -430,7 +438,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     console.log(`🎯 Reacting to comment ID: ${targetMessageId}`);
 
-    /** 6️⃣ Відправка реакції */
+    /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', {
       peer: {
         _: 'inputPeerChannel',
