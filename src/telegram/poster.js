@@ -479,7 +479,7 @@ async function processGroups(requestCode, externalLogger) {
     
     while (getIsRunning()) {
       const data = readData();
-      for (const group of data) {
+      for (const group of data) {        
         const { id, comment, reaction, prompt, target } = group;
 
         const { peer } = await ensureMembership(id);
