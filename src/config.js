@@ -15,7 +15,7 @@ function writeData(data) {
 }
 
 function readConfig() {
-  if (!fs.existsSync(CONFIG_FILE)) return config;
+  if (!fs.existsSync(CONFIG_FILE)) return {};
   return JSON.parse(fs.readFileSync(CONFIG_FILE));  
 }
 
