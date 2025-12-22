@@ -1,18 +1,28 @@
 let waitingForCode = false;
 const spinner = document.getElementById('mySpinner');
 
-const actionBtn = document.getElementById('action_btn');
-actionBtn.onclick = async () => {
-  try {        
-    const isRunning = await window.api.getIsRunning();  
-    if (!isRunning) {
-      await window.api.start();      
+let isRunning = false;
+setInterval(
+  async () => {
+    isRunning = await window.api.getIsRunning();  
+    if (isRunning) {
       spinner.classList.remove('paused');
       actionBtn.innerHTML = 'Stop';
     } else {
-      await window.api.stop();      
       spinner.classList.add('paused');
       actionBtn.innerHTML = 'Start';
+    }   
+  },
+  100
+);
+
+const actionBtn = document.getElementById('action_btn');
+actionBtn.onclick = async () => {
+  try {            
+    if (!isRunning) {
+      await window.api.start();      
+    } else {
+      await window.api.stop();      
     }   
   } catch (err) {
     appStatus.textContent = err.message;

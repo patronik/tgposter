@@ -4,7 +4,6 @@ const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
 let IS_RUNNING = false;
-let TASK_COUNT = 0;
 let logger = function (data) {};
 
 function getIsRunning() {
@@ -465,12 +464,7 @@ function getPeerType(peer) {
 }
 
 async function processGroups(requestCode, externalLogger) {
-  try {     
-    if (TASK_COUNT > 0) {
-      // avoid running multiple tasks 
-      return;
-    }
-    TASK_COUNT++;
+  try {        
     logger = externalLogger;
     await authenticate(requestCode);    
     
@@ -497,7 +491,9 @@ async function processGroups(requestCode, externalLogger) {
     console.log(err);
     return;
   } finally {
-    TASK_COUNT--;
+    setIsRunning(false);
+    console.log(`exiting`);
+    externalLogger(`exiting`);
   }    
 }
 

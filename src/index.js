@@ -3,6 +3,8 @@ const { readData, writeData, readConfig, writeConfig, getConfigItem } = require(
 const { processGroups, getIsRunning, setIsRunning } = require('./telegram/poster');
 const path = require('node:path');
 
+let TASK_COUNT = 0;
+
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) {
   app.quit();
@@ -103,12 +105,21 @@ ipcMain.handle('set-config', (_, config) => {
 
 ipcMain.handle('start', (_) => {
   setIsRunning(true);  
+  if (TASK_COUNT > 0) {    
+    console.log(`already running`);
+    externalLogger(`already running`);    
+    return;
+  }
+  TASK_COUNT++;      
+  const task = processGroups(requestCode, externalLogger);
+  task.then(() => TASK_COUNT--);
+  console.log(`started`);
   externalLogger(`started`);
-  processGroups(requestCode, externalLogger);  
 });
 
 ipcMain.handle('stop', (_) => {
   setIsRunning(false);  
+  console.log(`stopped`);
   externalLogger(`stopped`);
 });
 
