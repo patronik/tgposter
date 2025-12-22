@@ -58,13 +58,7 @@ window.api.onLog((data) => {
   console.log(data);
 });
 
-async function load() {
-  const isRunning = await window.api.getIsRunning(); 
-  if (isRunning) {
-    spinner.classList.remove('paused');
-    actionBtn.innerHTML = 'Stop';
-  }
-
+async function load() {  
   const items = await window.api.getItems();
   const tbody = document.getElementById('list');
   tbody.innerHTML = '';
