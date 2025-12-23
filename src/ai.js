@@ -10,6 +10,22 @@ const queryLLM = async (prompt, retries = 2) => {
   const timeout = setTimeout(() => controller.abort(), 15000);
 
   try {
+    let messages = [
+      {
+        role: 'user',
+        content: prompt,
+      }
+    ];
+    if (getConfigItem('GROQ_SYSTEM_MESSAGE')) {
+        messages = [
+          {
+            role: 'system',
+            content: getConfigItem('GROQ_SYSTEM_MESSAGE'),
+          },
+          ...messages,
+        ];
+    }
+
     const response = await fetch(
       'https://api.groq.com/openai/v1/chat/completions',
       {
@@ -20,17 +36,7 @@ const queryLLM = async (prompt, retries = 2) => {
         },
         body: JSON.stringify({
           model: getConfigItem('GROQ_API_MODEL') || 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'Ви — асистент. Відповідайте ВИКЛЮЧНО українською мовою. Не використовуйте жодних інших мов або ієрогліфів.',
-            },
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
+          messages,
         }),
         signal: controller.signal,
       }
