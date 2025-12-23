@@ -580,6 +580,7 @@ async function handleDebouncedPost(
   lastSeenChannelPost.set(channelPeer.id, postId);
 
   console.log(`⏳ Debounced post ${postId} in ${id}`);
+  logger(`⏳ Debounced post ${postId} in ${id}`);
 
   if (comment || prompt) {
     await sendCommentToSpecificPost(
