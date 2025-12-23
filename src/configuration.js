@@ -30,8 +30,8 @@ function render() {
       <td ${tdStyle}>${value}</td>
       <td>        
         <div class="btn_container">
-          <div><button onclick="editConfig('${key}')">Edit</button></div>
-          <div><button onclick="removeConfig('${key}')">Delete</button></div>
+          <div><button onclick="editConfig('${key}')">Редагувати</button></div>
+          <div><button onclick="removeConfig('${key}')">Видалити</button></div>
         </div>
       </td>
     `;
