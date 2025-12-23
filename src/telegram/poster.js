@@ -501,7 +501,7 @@ async function processGroups(requestCode, externalLogger) {
     const sendAsChannelName = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
     if (sendAsChannelName) {
       const result = await ensureMembership(sendAsChannelName);
-      if (sendAsChannelPeer._ !== 'channel') {
+      if (result.peer._ !== 'channel') {
         logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
         throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
       }
