@@ -34,6 +34,14 @@ function isNumericId(str) {
   return /^\d+$/.test(str);
 }
 
+function getSendAsChannel(channelPeer) {
+  return {
+    _: 'inputPeerChannel',
+    channel_id: channelPeer.id,
+    access_hash: channelPeer.access_hash
+  };
+}
+
 async function ensureMembership(groupidOrInvite) {
   try {
     const inviteHash = extractInviteHash(groupidOrInvite);
@@ -146,7 +154,7 @@ async function getLastChannelPost(channelPeer) {
   return history.messages[0].id;
 }
 
-async function sendMessage(peer, groupid, message, target, prompt) {
+async function sendMessage(peer, groupid, message, target, prompt, sendAsChannelPeer) {
   try {  
     const params = {
       peer: {
@@ -188,6 +196,10 @@ async function sendMessage(peer, groupid, message, target, prompt) {
       }
     }
 
+    if (sendAsChannelPeer) {
+      params.send_as = getSendAsChannel(sendAsChannelPeer);
+    }
+
     await mtprotoCall('messages.sendMessage', params);
 
     console.log(`✅ Message sent to ${groupid}`);
@@ -198,7 +210,7 @@ async function sendMessage(peer, groupid, message, target, prompt) {
   }
 }
 
-async function reactToMessage(peer, groupid, reaction, target) {
+async function reactToMessage(peer, groupid, reaction, target, sendAsChannelPeer) {
   try {    
     const history = await mtprotoCall('messages.getHistory', {
       peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
@@ -222,12 +234,18 @@ async function reactToMessage(peer, groupid, reaction, target) {
       targetMessage = validMessages[validMessages.length - 1];
     }
 
-    await mtprotoCall('messages.sendReaction', {
+    let params = {
       peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
       msg_id: targetMessage.id,
       reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
       big: false,
-    });
+    };
+
+    if (sendAsChannelPeer) {
+      params.send_as = getSendAsChannel(sendAsChannelPeer);
+    }
+
+    await mtprotoCall('messages.sendReaction', params);
     console.log(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
     logger(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
   } catch (error) {
@@ -258,7 +276,7 @@ async function findDiscussionMessage(linkedChatPeer, channelPeer, channelPostId)
   }
 }
 
-async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
+async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt, sendAsChannelPeer) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
     const channelPostId = await getLastChannelPost(channelPeer);
@@ -326,13 +344,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
     console.log(`🎯 Replying to message ID: ${targetMessage.id}`);
 
-    if (prompt && LLMEnabled()) {
-      // reply with AI 
-      params.message = await queryLLM(`${prompt}. Повідомлення: "${targetMessage.message}"`);
-    }
-
-    // 7️⃣ Відправляємо коментар
-    await mtprotoCall('messages.sendMessage', {
+    let params = {
       peer: {
         _: 'inputPeerChannel',
         channel_id: linkedChat.peer.id,
@@ -347,7 +359,19 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
         BigInt(Date.now()) * 1000n +
         BigInt(Math.floor(Math.random() * 1000))
       ).toString(),
-    });
+    };
+
+    if (prompt && LLMEnabled()) {
+      // reply with AI 
+      params.message = await queryLLM(`${prompt}. Повідомлення: "${targetMessage.message}"`);
+    }
+
+    if (sendAsChannelPeer) {
+      params.send_as = getSendAsChannel(sendAsChannelPeer);
+    }
+
+    // 7️⃣ Відправляємо коментар
+    await mtprotoCall('messages.sendMessage', params);
 
     console.log(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
     logger(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
@@ -357,7 +381,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
   }
 }
 
-async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction) {
+async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction, sendAsChannelPeer) {
   try {
     /** 1️⃣ Отримуємо linked chat */
     const linkedChat = await getLinkedChatPeer(channelPeer);
@@ -429,8 +453,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     console.log(`🎯 Reacting to comment ID: ${targetMessageId}`);
 
-    /** 7️⃣ Відправка реакції */
-    await mtprotoCall('messages.sendReaction', {
+    let params = {
       peer: {
         _: 'inputPeerChannel',
         channel_id: linkedChat.peer.id,
@@ -439,8 +462,14 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       msg_id: targetMessageId,
       reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
       big: false
-    });
+    };
 
+    if (sendAsChannelPeer) {
+      params.send_as = getSendAsChannel(sendAsChannelPeer);
+    }
+
+    /** 7️⃣ Відправка реакції */
+    await mtprotoCall('messages.sendReaction', params);
     console.log(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
     logger(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
   } catch (error) {
@@ -466,7 +495,18 @@ function getPeerType(peer) {
 async function processGroups(requestCode, externalLogger) {
   try {        
     logger = externalLogger;
-    await authenticate(requestCode);    
+    await authenticate(requestCode); 
+    
+    let sendAsChannelPeer;
+    const sendAsChannelName = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
+    if (sendAsChannelName) {
+      const result = await ensureMembership(sendAsChannelName);
+      if (sendAsChannelPeer._ !== 'channel') {
+        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+      }
+      sendAsChannelPeer = result.peer;
+    }    
     
     while (getIsRunning()) {
       const data = readData();
@@ -477,11 +517,11 @@ async function processGroups(requestCode, externalLogger) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment || prompt) await sendMessage(peer, id, comment, target, prompt);            
-          if (reaction) await reactToMessage(peer, id, reaction, target);                     
+          if (comment || prompt) await sendMessage(peer, id, comment, target, prompt, sendAsChannelPeer);            
+          if (reaction) await reactToMessage(peer, id, reaction, target, sendAsChannelPeer);                     
         } else if (type == 'channel') {
-          if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt);                
-          if (reaction) await reactToCommentOfPost(peer, id, target, reaction);                           
+          if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt, sendAsChannelPeer);                
+          if (reaction) await reactToCommentOfPost(peer, id, target, reaction, sendAsChannelPeer);                           
         }      
 
       }
