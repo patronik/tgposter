@@ -3,6 +3,11 @@ const { mtproto, authenticate } = require(`./mtproto`);
 const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
+const lastSeenChannelPost = new Map();
+const channelDebounce = new Map();
+const peerCache = new Map();
+const linkedChatCache = new Map();
+
 let IS_RUNNING = false;
 let logger = function (data) {};
 
@@ -40,6 +45,27 @@ function getSendAsChannel(channelPeer) {
     channel_id: channelPeer.id,
     access_hash: channelPeer.access_hash
   };
+}
+
+async function getPeerCached(id) {
+  if (peerCache.has(id)) return peerCache.get(id);
+  const res = await ensureMembership(id);
+  peerCache.set(id, res);
+  return res;
+}
+
+function getPeerType(peer) {
+  if (!peer || !peer._) return 'unknown';
+
+  if (peer._ === 'chat') {
+    return 'group';
+  }
+
+  if (peer._ === 'channel') {
+    return peer.megagroup ? 'supergroup' : 'channel';
+  }
+
+  return 'unknown';
 }
 
 async function ensureMembership(groupidOrInvite) {
@@ -125,6 +151,10 @@ async function ensureMembership(groupidOrInvite) {
 
 async function getLinkedChatPeer(channelPeer) {
   try {
+    if (linkedChatCache.has(channelPeer.id)) {
+      return linkedChatCache.get(channelPeer.id);
+    }
+
     const fullChannel = await mtprotoCall('channels.getFullChannel', {
       channel: { _: 'inputChannel', channel_id: channelPeer.id, access_hash: channelPeer.access_hash },
     });
@@ -135,10 +165,13 @@ async function getLinkedChatPeer(channelPeer) {
     const linkedChat = fullChannel.chats.find(c => c.id === linkedChatId);
     if (!linkedChat) throw new Error('Linked chat not found');
     
-    return {
+    const result = {
       peer: linkedChat,
       access_hash: linkedChat.access_hash
     };
+
+    linkedChatCache.set(channelPeer.id, result);
+  return result;
   } catch (error) {
     console.error('Error getting linked chat:', error);
     throw error;
@@ -154,7 +187,7 @@ async function getLastChannelPost(channelPeer) {
   return history.messages[0].id;
 }
 
-async function sendMessage(peer, groupid, message, target, prompt, sendAsChannelPeer) {
+async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
   try {  
     const params = {
       peer: {
@@ -196,8 +229,8 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsChannel
       }
     }
 
-    if (sendAsChannelPeer) {
-      params.send_as = getSendAsChannel(sendAsChannelPeer);
+    if (sendAsPeer) {
+      params.send_as = getSendAsChannel(sendAsPeer);
     }
 
     await mtprotoCall('messages.sendMessage', params);
@@ -210,7 +243,7 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsChannel
   }
 }
 
-async function reactToMessage(peer, groupid, reaction, target, sendAsChannelPeer) {
+async function reactToMessage(peer, groupid, reaction, target, sendAsPeer) {
   try {    
     const history = await mtprotoCall('messages.getHistory', {
       peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
@@ -241,8 +274,8 @@ async function reactToMessage(peer, groupid, reaction, target, sendAsChannelPeer
       big: false,
     };
 
-    if (sendAsChannelPeer) {
-      params.send_as = getSendAsChannel(sendAsChannelPeer);
+    if (sendAsPeer) {
+      params.send_as = getSendAsChannel(sendAsPeer);
     }
 
     await mtprotoCall('messages.sendReaction', params);
@@ -276,7 +309,7 @@ async function findDiscussionMessage(linkedChatPeer, channelPeer, channelPostId)
   }
 }
 
-async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt, sendAsChannelPeer) {
+async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt, sendAsPeer) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
     const channelPostId = await getLastChannelPost(channelPeer);
@@ -287,9 +320,9 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
     // 3️⃣ Гарантуємо участь у linked chat
     if (linkedChat.peer.username) {
-      await ensureMembership(`@${linkedChat.peer.username}`);
+      await getPeerCached(`@${linkedChat.peer.username}`);
     } else if (linkedChat.peer.id && linkedChat.peer.access_hash) {
-      await ensureMembership(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
+      await getPeerCached(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
     } else {
       throw new Error('Invalid linked chat peer');
     }
@@ -366,8 +399,8 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       params.message = await queryLLM(`${prompt}. Повідомлення: "${targetMessage.message}"`);
     }
 
-    if (sendAsChannelPeer) {
-      params.send_as = getSendAsChannel(sendAsChannelPeer);
+    if (sendAsPeer) {
+      params.send_as = getSendAsChannel(sendAsPeer);
     }
 
     // 7️⃣ Відправляємо коментар
@@ -381,16 +414,16 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
   }
 }
 
-async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction, sendAsChannelPeer) {
+async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction, sendAsPeer) {
   try {
     /** 1️⃣ Отримуємо linked chat */
     const linkedChat = await getLinkedChatPeer(channelPeer);
 
     /** 2️⃣ Гарантуємо участь */
     if (linkedChat.peer.username) {
-      await ensureMembership(`@${linkedChat.peer.username}`);
+      await getPeerCached(`@${linkedChat.peer.username}`);
     } else if (linkedChat.peer.id && linkedChat.peer.access_hash) {
-      await ensureMembership(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
+      await getPeerCached(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
     }
 
     /** 3️⃣ Отримуємо ОСТАННІЙ ПОСТ каналу */
@@ -464,8 +497,8 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       big: false
     };
 
-    if (sendAsChannelPeer) {
-      params.send_as = getSendAsChannel(sendAsChannelPeer);
+    if (sendAsPeer) {
+      params.send_as = getSendAsChannel(sendAsPeer);
     }
 
     /** 7️⃣ Відправка реакції */
@@ -478,18 +511,128 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
   }
 }
 
-function getPeerType(peer) {
-  if (!peer || !peer._) return 'unknown';
+async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction, sendAsPeer) {
+  await mtprotoCall('messages.sendReaction', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: channelPeer.id,
+      access_hash: channelPeer.access_hash
+    },
+    msg_id: postId,
+    reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
+    ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
+  });
 
-  if (peer._ === 'chat') {
-    return 'group';
+  console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
+  logger(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
+}
+
+async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, prompt, sendAsPeer) {
+  const linkedChat = await getLinkedChatPeer(channelPeer);
+
+  if (linkedChat.peer.username) {
+    await getPeerCached(`@${linkedChat.peer.username}`);
+  } else {
+    await getPeerCached(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
   }
 
-  if (peer._ === 'channel') {
-    return peer.megagroup ? 'supergroup' : 'channel';
+  const discussionRoot = await findDiscussionMessage(
+    linkedChat.peer,
+    channelPeer,
+    postId
+  );
+
+  let text = comment;
+  if (prompt && LLMEnabled()) {
+    text = await queryLLM(`${prompt}. Повідомлення: "${discussionRoot.message}"`);
   }
 
-  return 'unknown';
+  await mtprotoCall('messages.sendMessage', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: linkedChat.peer.id,
+      access_hash: linkedChat.peer.access_hash
+    },
+    message: text,
+    reply_to: {
+      _: 'inputReplyToMessage',
+      reply_to_msg_id: discussionRoot.id
+    },
+    random_id: BigInt(Date.now()).toString(),
+    ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
+  });
+
+  console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
+  logger(`💬 Commented on new post ${postId} in ${channelGroupId}`);
+}
+
+async function handleDebouncedPost(
+  channelPeer,
+  groupConfig,
+  postId,
+  sendAsPeer
+) {
+  const { id, comment, reaction, prompt } = groupConfig;
+
+  const lastSeen = lastSeenChannelPost.get(channelPeer.id);
+  if (lastSeen && postId <= lastSeen) return;
+
+  lastSeenChannelPost.set(channelPeer.id, postId);
+
+  console.log(`⏳ Debounced post ${postId} in ${id}`);
+
+  if (comment || prompt) {
+    await sendCommentToSpecificPost(
+      channelPeer,
+      id,
+      postId,
+      comment,
+      prompt,
+      sendAsPeer
+    );
+  }
+
+  if (reaction) {
+    await reactToSpecificPost(
+      channelPeer,
+      id,
+      postId,
+      reaction,
+      sendAsPeer
+    );
+  }
+}
+
+function scheduleDebouncedPost(
+  channelPeer,
+  groupConfig,
+  postId,
+  sendAsPeer
+) {
+  const key = channelPeer.id;
+
+  const existing = channelDebounce.get(key);
+  if (existing?.timer) {
+    clearTimeout(existing.timer);
+  }
+
+  const delay = parseInt((getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || 10), 10) * 1000;
+  const timer = setTimeout(async () => {
+    try {
+      await handleDebouncedPost(
+        channelPeer,
+        groupConfig,
+        postId,
+        sendAsPeer
+      );
+    } catch (err) {
+      console.error('❌ Debounced post handler error:', err);
+    } finally {
+      channelDebounce.delete(key);
+    }
+  }, delay);
+
+  channelDebounce.set(key, { postId, timer });
 }
 
 async function processGroups(requestCode, externalLogger) {
@@ -497,31 +640,61 @@ async function processGroups(requestCode, externalLogger) {
     logger = externalLogger;
     await authenticate(requestCode); 
     
-    let sendAsChannelPeer;
-    const sendAsChannelName = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
-    if (sendAsChannelName) {
-      const result = await ensureMembership(sendAsChannelName);
+    let sendAsPeer;
+    const sendAsId = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
+    if (sendAsId) {
+      const result = await getPeerCached(sendAsId);
       if (result.peer._ !== 'channel') {
         logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
         throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
       }
-      sendAsChannelPeer = result.peer;
-    }    
+      sendAsPeer = result.peer;
+    }
+
+    mtproto.updates.on('updates', async ({ updates }) => {
+      if (!getIsRunning()) return;
+    
+      for (const upd of updates) {
+        if (upd._ !== 'updateNewChannelMessage') continue;
+    
+        const msg = upd.message;
+        if (!msg || msg._ !== 'message') continue;
+        if (!msg.message && !msg.media) continue;
+    
+        const channelId = msg.peer_id?.channel_id;
+        if (!channelId) continue;
+    
+        const data = readData();
+    
+        for (const group of data) {
+          if (group.target !== '^') continue;
+    
+          const { id } = group;
+          const { peer } = await getPeerCached(id);
+    
+          if (peer._ !== 'channel') continue;
+          if (peer.id !== channelId) continue;
+    
+          scheduleDebouncedPost(peer, group, msg.id, sendAsPeer);
+        }
+      }
+    });
     
     while (getIsRunning()) {
       const data = readData();
       for (const group of data) {        
         const { id, comment, reaction, prompt, target } = group;
 
-        const { peer } = await ensureMembership(id);
+        const { peer } = await getPeerCached(id);
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment || prompt) await sendMessage(peer, id, comment, target, prompt, sendAsChannelPeer);            
-          if (reaction) await reactToMessage(peer, id, reaction, target, sendAsChannelPeer);                     
+          if (comment || prompt) await sendMessage(peer, id, comment, target, prompt, sendAsPeer);            
+          if (reaction) await reactToMessage(peer, id, reaction, target, sendAsPeer);                     
         } else if (type == 'channel') {
-          if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt, sendAsChannelPeer);                
-          if (reaction) await reactToCommentOfPost(peer, id, target, reaction, sendAsChannelPeer);                           
+          if (target === '^') continue; 
+          if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt, sendAsPeer);                
+          if (reaction) await reactToCommentOfPost(peer, id, target, reaction, sendAsPeer);                           
         }      
 
       }
@@ -532,6 +705,8 @@ async function processGroups(requestCode, externalLogger) {
     return;
   } finally {
     setIsRunning(false);
+    lastSeenChannelPost.clear();
+    channelDebounce.clear();
     console.log(`exiting`);
     externalLogger(`exiting`);
   }    

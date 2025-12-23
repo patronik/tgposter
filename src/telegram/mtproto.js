@@ -11,8 +11,13 @@ const config = {
 const mtproto = new MTProto({
   ...config,
   storageOptions: {
-    path: path.join(app.getPath('userData'), 
-    `${getConfigItem('TELEGRAM_PHONE_NUM')}-session.json`)
+    path: path.join(
+      app.getPath('userData'),
+      `${getConfigItem('TELEGRAM_PHONE_NUM')}-session.json`
+    )
+  },
+  updates: {
+    enabled: true
   }
 });
 
