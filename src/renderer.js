@@ -1,24 +1,45 @@
 let waitingForCode = false;
 const spinner = document.getElementById('mySpinner');
 
+const appStatus = document.getElementById('status');
+const codeInput = document.getElementById('code');
+const sendCodeBtn = document.getElementById('send_code');
+
 let isRunning = false;
 setInterval(
   async () => {
     isRunning = await window.api.getIsRunning();  
     if (isRunning) {
       spinner.classList.remove('paused');
-      actionBtn.innerHTML = 'Stop';
+      actionBtn.innerHTML = 'Стоп';
     } else {
       spinner.classList.add('paused');
-      actionBtn.innerHTML = 'Start';
+      actionBtn.innerHTML = 'Старт';
     }   
   },
   100
 );
 
+async function validateConfig() {  
+  const config = await window.api.getConfig();
+  const required = await window.api.getRequiredKeys();
+  for (let item of required) {
+    if (!config[item] || config[item].length == 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
 const actionBtn = document.getElementById('action_btn');
 actionBtn.onclick = async () => {
   try {            
+    const isConfigValid = await validateConfig();
+    if (!isConfigValid) {      
+      appStatus.innerHTML = `відсутня <a href="configuration.html">конфігурація</a>`;
+      return;
+    }
+
     if (!isRunning) {
       await window.api.start();      
     } else {
@@ -29,14 +50,10 @@ actionBtn.onclick = async () => {
   }  
 };
 
-const appStatus = document.getElementById('status');
-const codeInput = document.getElementById('code');
-const sendCodeBtn = document.getElementById('send_code');
-
 // request auth code
 window.api.onCodeRequest(() => {
   waitingForCode = true;
-  appStatus.textContent = 'Enter code:';
+  appStatus.textContent = 'Введіть код:';
   codeInput.value = '';
   input.focus();
 });
@@ -46,7 +63,7 @@ sendCodeBtn.onclick = async () => {
   if (!waitingForCode) return;
   try {
     await window.api.submitCode(codeInput.value);
-    appStatus.textContent = 'Code sent';
+    appStatus.textContent = 'Код надісланий';
     waitingForCode = false;
   } catch (err) {
     appStatus.textContent = err.message;
@@ -72,8 +89,8 @@ async function load() {
       <td>${i.target}</td>
       <td>                
         <div class="btn_container">
-          <div><button onclick="edit('${i.id}')">Edit</button></div>
-          <div><button onclick="remove('${i.id}')">Delete</button></div>          
+          <div><button onclick="edit('${i.id}')">Редагувати</button></div>
+          <div><button onclick="remove('${i.id}')">Видалити</button></div>          
         </div>
       </td>
     `;

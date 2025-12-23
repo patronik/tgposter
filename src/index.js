@@ -1,5 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
-const { readData, writeData, readConfig, writeConfig, getConfigItem } = require('./config');
+const { readData, writeData, readConfig, writeConfig, getConfigItem, getReqKeys } = require('./config');
 const { processGroups, getIsRunning, setIsRunning } = require('./telegram/poster');
 const path = require('node:path');
 
@@ -92,6 +92,10 @@ ipcMain.handle('delete-item', (_, id) => {
 
 ipcMain.handle('get-config', () => {
   return readConfig();
+});
+
+ipcMain.handle('get-required-keys', () => {
+  return getReqKeys();
 });
 
 ipcMain.handle('get-config-item', (_, key) => {

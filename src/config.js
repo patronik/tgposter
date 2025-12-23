@@ -2,6 +2,14 @@ const { app } = require('electron');
 const path = require('node:path');
 const fs = require('fs');
 
+const requiredKeys = [
+  'TELEGRAM_API_ID',
+  'TELEGRAM_API_HASH',
+  'TELEGRAM_PHONE_NUM',
+  'TELEGRAM_ITERATION_DELAY',
+  'TELEGRAM_API_DELAY'
+];
+
 const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
 
@@ -13,6 +21,10 @@ function readData() {
 function writeData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
+
+function getReqKeys() {   
+  return requiredKeys;
+};
 
 function readConfig() {
   if (!fs.existsSync(CONFIG_FILE)) return {};
@@ -30,6 +42,7 @@ function getConfigItem(key) {
 
 module.exports.readData = readData;
 module.exports.writeData = writeData;
+module.exports.getReqKeys = getReqKeys;
 module.exports.readConfig = readConfig;
 module.exports.writeConfig = writeConfig;
 module.exports.getConfigItem = getConfigItem;

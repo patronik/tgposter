@@ -8,7 +8,8 @@ contextBridge.exposeInMainWorld('api', {
   updateItem: (item) => ipcRenderer.invoke('update-item', item),
   deleteItem: (id) => ipcRenderer.invoke('delete-item', id),
    // config
-  getConfig: () => ipcRenderer.invoke('get-config'),
+  getConfig: () => ipcRenderer.invoke('get-config'),  
+  getRequiredKeys: () => ipcRenderer.invoke('get-required-keys'),  
   getConfigItem: (key) => ipcRenderer.invoke('get-config-item', key),
   setConfig: (config) => ipcRenderer.invoke('set-config', config),
   // auth

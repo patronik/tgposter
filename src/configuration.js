@@ -1,15 +1,9 @@
 let config = {};
-
-const required = [
-  'TELEGRAM_API_ID',
-  'TELEGRAM_API_HASH',
-  'TELEGRAM_PHONE_NUM',
-  'TELEGRAM_ITERATION_DELAY',
-  'TELEGRAM_API_DELAY'
-];
+let required = [];
 
 async function loadConfig() {
   config = await window.api.getConfig();
+  required = await window.api.getRequiredKeys();
 
   for (let item of required) {
     if (!config[item]) {
@@ -23,12 +17,17 @@ async function loadConfig() {
 function render() {
   const tbody = document.getElementById('config-list');
   tbody.innerHTML = '';
-
+  
   Object.entries(config).forEach(([key, value]) => {
+    let tdStyle = "";
+    if (required.includes(key) && (!value)) {
+      tdStyle = `style="border: 2px solid red;"`;
+    }
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${key}</td>
-      <td>${value}</td>
+      <td ${tdStyle}>${value}</td>
       <td>        
         <div class="btn_container">
           <div><button onclick="editConfig('${key}')">Edit</button></div>
