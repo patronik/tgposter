@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Configuration</title>
+  <title>Конфігурація</title>
   <link rel="stylesheet" href="main.css">
 </head>
 <body>
   <div class="container">
-    <h2>Configuration</h2>
-    <a href="index.html">&#x2302; Home</a>
-    <a href="configuration.html">⚙ Configuration</a>  
+    <h2>Конфігурація</h2>
+    <a href="index.html">&#x2302; Головна</a>
+    <a href="configuration.html">⚙ Конфігурація</a>  
     <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <circle cx="12" cy="12" r="10"/>
       <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
       <line x1="12" y1="17" x2="12.01" y2="17"/>
-    </svg> Help</a>  
+    </svg> Допомога</a>  
 
     <div class="form-grid">
       <input id="key" placeholder="Config key" />
@@ -22,8 +22,8 @@
     </div>
 
     <div class="button-group">      
-      <button id="add_btn" onclick="addConfig()">Add</button>
-      <button id="save_btn" style="display: none;" onclick="saveConfig()">Save</button>
+      <button id="add_btn" onclick="addConfig()">Додати</button>
+      <button id="save_btn" style="display: none;" onclick="saveConfig()">Зберегти</button>
     </div>
   </div>
 
@@ -32,9 +32,9 @@
     <table class="data-grid">
       <thead>
         <tr>
-          <th>Key</th>
-          <th>Value</th>
-          <th width="120">Actions</th>
+          <th>Параметр</th>
+          <th>Значення</th>
+          <th width="120">Дії</th>
         </tr>
       </thead>
       <tbody id="config-list"></tbody>
