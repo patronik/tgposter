@@ -24,10 +24,7 @@ const createWindow = async () => {
   });
 
   // and load the index.html of the app.
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
-
-  // Open the DevTools.
-  // mainWindow.webContents.openDevTools();  
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));  
 };
 
 // This method will be called when Electron has finished
@@ -60,6 +57,12 @@ app.on('window-all-closed', () => {
 function externalLogger(data) {
   mainWindow.webContents.send('log', data);
 }
+
+ipcMain.handle('open-devtools', () => {
+  if (mainWindow) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+});
 
 ipcMain.handle('get-items', () => {
   return readData();

@@ -22,4 +22,5 @@ contextBridge.exposeInMainWorld('api', {
   requestRestart: (reason) => ipcRenderer.invoke('request-restart', reason),
   // info
   onLog: (callback) => ipcRenderer.on('log', (_, data) => callback(data)),
+  openDevTools: () => ipcRenderer.invoke('open-devtools')
 });
