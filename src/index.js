@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { readData, writeData, readConfig, writeConfig, getConfigItem, getReqKeys } = require('./config');
 const { processGroups, getIsRunning, setIsRunning } = require('./telegram/poster');
 const path = require('node:path');
@@ -131,6 +131,10 @@ ipcMain.handle('get-is-running', () => {
   return getIsRunning();
 });
 
+ipcMain.handle('request-restart', async (_, reason) => {
+  await requestRestart(reason);
+});
+
 /**
  * Ask renderer for password and wait for it
  */
@@ -152,3 +156,17 @@ ipcMain.handle('submit-code', (_, code) => {
     codeResolver = null;
   }
 });
+
+async function requestRestart(
+  reason = 'Ваша сесія змінилась, потрібен перезапуск програми!'
+) {
+  await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Системне повідомлення',
+    message: '',
+    detail: `${reason}`,
+    buttons: ['OK'],
+    defaultId: 0
+  });
+  app.quit();
+}

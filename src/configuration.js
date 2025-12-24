@@ -30,8 +30,8 @@ function render() {
       <td ${tdStyle}>${value}</td>
       <td>        
         <div class="btn_container">
-          <div><button onclick="editConfig('${key}')">Редагувати</button></div>
-          <div><button onclick="removeConfig('${key}')">Видалити</button></div>
+          <div><button onclick="editConfig('${key}')"><span class="material-icons">edit</span></button></div>
+          <div><button onclick="removeConfig('${key}')"><span class="material-icons">delete</span></button></div>
         </div>
       </td>
     `;
@@ -52,6 +52,10 @@ async function addConfig() {
   document.getElementById('value').value = '';
 
   render();
+
+  if (required.includes(key)) {
+    await window.api.requestRestart('Ваша сесія змінилась, потрібен перезапуск програми!');
+  }
 }
 
 async function editConfig(key) {
@@ -74,6 +78,10 @@ async function saveConfig() {
   document.getElementById("add_btn").style.display = "block";
   document.getElementById("save_btn").style.display = "none";
   document.getElementById("key").readOnly = false;  
+
+  if (required.includes(key)) {
+    await window.api.requestRestart('Ваша сесія змінилась, потрібен перезапуск програми!');
+  }
 }
 
 async function removeConfig(key) {

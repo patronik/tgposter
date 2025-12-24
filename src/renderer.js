@@ -89,8 +89,8 @@ async function load() {
       <td>${i.target}</td>
       <td>                
         <div class="btn_container">
-          <div><button onclick="edit('${i.id}')">Редагувати</button></div>
-          <div><button onclick="remove('${i.id}')">Видалити</button></div>          
+          <div><button onclick="edit('${i.id}')"><span class="material-icons">edit</span></button></div>
+          <div><button onclick="remove('${i.id}')"><span class="material-icons">delete</span></button></div>          
         </div>
       </td>
     `;
