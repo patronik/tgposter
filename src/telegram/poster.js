@@ -360,20 +360,21 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       m.reply_to.reply_to_msg_id === discussionRoot.id
     );
 
-    if (!postComments.length) {
-      throw new Error('No comments found for last post');
-    }
-
-    if (target === '$') {
-      targetMessage = postComments[0];
-      console.log(`💬 Last comment ID: ${targetMessage.id}`);
-    } else if (target === '*') {
-      targetMessage = postComments[getRandomNumber(0, postComments.length - 1)];
-      console.log(`🎲 Random comment ID: ${targetMessage.id}`);
+    if (target === '$' || target === '*') { 
+      if (!postComments.length) {
+        throw new Error('No comments found for last post');
+      }
+      if (target === '$') {
+        targetMessage = postComments[0];
+        console.log(`💬 Last comment ID: ${targetMessage.id}`);
+      } else if (target === '*') {
+        targetMessage = postComments[getRandomNumber(0, postComments.length - 1)];
+        console.log(`🎲 Random comment ID: ${targetMessage.id}`);
+      }  
     } else {
       targetMessage = discussionRoot;
       console.log(`💬 Root ID: ${targetMessage.id}`);
-    }
+    }        
 
     console.log(`🎯 Replying to message ID: ${targetMessage.id}`);
 
