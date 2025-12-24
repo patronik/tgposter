@@ -76,10 +76,8 @@ async function saveConfig() {
     document.getElementById("save_btn").style.display = "none";
     document.getElementById("key").readOnly = false;  
 
-    if (required.includes(key)) {
-      await window.api.requestRestart(
-        'Ваша сесія змінилась, потрібен перезапуск програми!'
-      );
+    if (required.includes(key)) {       
+      sessionStorage.setItem('request-restart', '1');      
     }
   }  
 }

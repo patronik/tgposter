@@ -40,6 +40,20 @@ actionBtn.onclick = async () => {
       return;
     }
 
+    const items = await window.api.getItems();
+    if (!(items.length > 0)) {
+      appStatus.textContent = `відсутні групи/канали`;
+      return;
+    }
+
+    const requestRestart = sessionStorage.getItem('request-restart');
+    if (requestRestart) {
+      sessionStorage.removeItem('request-restart');
+      await window.api.requestRestart(
+        'Ваша сесія змінилась, потрібен перезапуск програми!'
+      );
+    }    
+
     if (!isRunning) {
       await window.api.start();      
     } else {
