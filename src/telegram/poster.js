@@ -362,7 +362,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
     if (target === '$' || target === '*') { 
       if (!postComments.length) {
-        throw new Error('No comments found for last post');
+        throw new Error('No comments found for post');
       }
       if (target === '$') {
         targetMessage = postComments[0];
@@ -472,7 +472,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     let targetMessageId;
     if (target === '$' || target === '$') {
       if (!comments.length) {
-        throw new Error('No comments for last post');
+        throw new Error('No comments for post');
       }
       if (target === '$') {
         targetMessageId = comments[0].id;
