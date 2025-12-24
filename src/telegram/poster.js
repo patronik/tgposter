@@ -468,18 +468,19 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       m.reply_to?.reply_to_msg_id === discussionRoot.id
     );
 
-    if (!comments.length) {
-      throw new Error('No comments for last post');
-    }
-
     /** 6️⃣ Вибір target */
     let targetMessageId;
-    if (target === '$') {
-      targetMessageId = comments[0].id;
-      console.log(`💬 Last comment ID: ${targetMessageId}`);
-    } else if (target === '*') {
-      targetMessageId = comments[getRandomNumber(0, comments.length - 1)].id;
-      console.log(`💬 Random comment ID: ${targetMessageId}`);
+    if (target === '$' || target === '$') {
+      if (!comments.length) {
+        throw new Error('No comments for last post');
+      }
+      if (target === '$') {
+        targetMessageId = comments[0].id;
+        console.log(`💬 Last comment ID: ${targetMessageId}`);
+      } else if (target === '*') {
+        targetMessageId = comments[getRandomNumber(0, comments.length - 1)].id;
+        console.log(`💬 Random comment ID: ${targetMessageId}`);
+      } 
     } else {
       targetMessageId = discussionRoot.id;
       console.log(`💬 Root ID: ${targetMessageId}`);
