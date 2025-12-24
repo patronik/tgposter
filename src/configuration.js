@@ -51,11 +51,7 @@ async function addConfig() {
   document.getElementById('key').value = '';
   document.getElementById('value').value = '';
 
-  render();
-
-  if (required.includes(key)) {
-    await window.api.requestRestart('Ваша сесія змінилась, потрібен перезапуск програми!');
-  }
+  render();  
 }
 
 async function editConfig(key) {
@@ -69,19 +65,23 @@ async function editConfig(key) {
 
 async function saveConfig() {
   const key = document.getElementById('key').value;  
-  config[key] = document.getElementById('value').value;
-  await window.api.setConfig(config);
-  render();
-  
-  document.getElementById('key').value = '';
-  document.getElementById('value').value = '';  
-  document.getElementById("add_btn").style.display = "block";
-  document.getElementById("save_btn").style.display = "none";
-  document.getElementById("key").readOnly = false;  
+  if (config[key] != document.getElementById('value').value) {    
+    config[key] = document.getElementById('value').value;
+    await window.api.setConfig(config);
+    render();
+    
+    document.getElementById('key').value = '';
+    document.getElementById('value').value = '';  
+    document.getElementById("add_btn").style.display = "block";
+    document.getElementById("save_btn").style.display = "none";
+    document.getElementById("key").readOnly = false;  
 
-  if (required.includes(key)) {
-    await window.api.requestRestart('Ваша сесія змінилась, потрібен перезапуск програми!');
-  }
+    if (required.includes(key)) {
+      await window.api.requestRestart(
+        'Ваша сесія змінилась, потрібен перезапуск програми!'
+      );
+    }
+  }  
 }
 
 async function removeConfig(key) {
