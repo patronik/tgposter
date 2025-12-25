@@ -70,10 +70,29 @@ function getPeerType(peer) {
 
 async function handlePrompt(prompt, input) {
   let result = {
-    continue: true
+    skip: false,
+    answer: ""
   };  
-  const reply = await queryLLM(`${prompt} <<<${input}>>>`);
-  result.reply = reply.replace(/^["']|["']$/g, '');
+
+  const response = await queryLLM(`${prompt} <<<${input}>>>`);
+  console.log(`LLM response: "${response}"`);
+  logger(`LLM response: "${response}"`);  
+
+  let jsonResponse;
+  try {
+    jsonResponse = JSON.parse(response);    
+  } catch (e) {        
+  }
+
+  if (jsonResponse) {
+    result = {
+      ...result,
+      ...jsonResponse
+    };
+  } else {
+    result.answer = response.replace(/^["']|["']$/g, '');  
+  }  
+
   return result;
 }
 
@@ -235,12 +254,12 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
       if (prompt && LLMEnabled()) {
         // handle prompt        
         const res = await handlePrompt(prompt, targetMessage.message);
-        if (!res.continue) {
-          console.log(`Skip sending to ${groupid} due to agentic scenario`);
-          logger(`Skip sending to ${groupid} due to agentic scenario`);
+        if (res.skip) {
+          console.log(`Skip sending to ${groupid} due to agent directive`);
+          logger(`Skip sending to ${groupid} due to agent directive`);
           return;
         }
-        params.message = res.reply;
+        params.message = res.answer;
       }
     }
 
@@ -413,12 +432,12 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     if (prompt && LLMEnabled()) {      
       // handle prompt        
       const res = await handlePrompt(prompt, targetMessage.message);
-      if (!res.continue) {
-        console.log(`Skip sending to ${groupid} due to agentic scenario`);
-        logger(`Skip sending to ${groupid} due to agentic scenario`);
+      if (res.skip) {
+        console.log(`Skip sending to ${groupid} due to agent directive`);
+        logger(`Skip sending to ${groupid} due to agent directive`);
         return;
       }
-      params.message = res.reply;
+      params.message = res.answer;
     }
 
     if (sendAsPeer) {
@@ -569,12 +588,12 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
   if (prompt && LLMEnabled()) {
     // handle prompt        
     const res = await handlePrompt(prompt, discussionRoot.message);
-    if (!res.continue) {
-      console.log(`Skip sending to ${groupid} due to agentic scenario`);
-      logger(`Skip sending to ${groupid} due to agentic scenario`);
+    if (res.skip) {
+      console.log(`Skip sending to ${groupid} due to agent directive`);
+      logger(`Skip sending to ${groupid} due to agent directive`);
       return;
-    }    
-    text = res.reply;
+    } 
+    text = res.answer;
   }
 
   await mtprotoCall('messages.sendMessage', {
