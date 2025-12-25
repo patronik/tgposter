@@ -89,6 +89,27 @@ window.api.onLog((data) => {
   console.log(data);
 });
 
+async function exportData() {
+  try {
+    await window.api.exportData();
+    appStatus.textContent = 'Дані експортовано';
+  } catch (e) {
+    appStatus.textContent = e.message;
+  }
+}
+
+async function importData() {
+  try {
+    const replaced = await window.api.importData();
+    if (replaced) {
+      await load();
+      appStatus.textContent = 'Дані імпортовано';
+    }
+  } catch (e) {
+    appStatus.textContent = e.message;
+  }
+}
+
 async function load() {  
   const items = await window.api.getItems();
   const tbody = document.getElementById('list');

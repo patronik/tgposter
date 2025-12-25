@@ -17,7 +17,9 @@ contextBridge.exposeInMainWorld('api', {
   submitCode: (code) => ipcRenderer.invoke('submit-code', code),
   // control
   start: () => ipcRenderer.invoke('start'),
-  stop: () => ipcRenderer.invoke('stop'),
+  stop: () => ipcRenderer.invoke('stop'),   
+  exportData: () => ipcRenderer.invoke('export-data'),
+  importData: () => ipcRenderer.invoke('import-data'),
   getIsRunning: () => ipcRenderer.invoke('get-is-running'),
   requestRestart: (reason) => ipcRenderer.invoke('request-restart', reason),
   // info

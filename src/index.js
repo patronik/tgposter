@@ -1,6 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { readData, writeData, readConfig, writeConfig, getConfigItem, getReqKeys } = require('./config');
 const { processGroups, getIsRunning, setIsRunning } = require('./telegram/poster');
+const fs = require('fs');
 const path = require('node:path');
 
 let TASK_COUNT = 0;
@@ -158,6 +159,46 @@ ipcMain.handle('submit-code', (_, code) => {
     codeResolver(code);
     codeResolver = null;
   }
+});
+
+ipcMain.handle('export-data', async () => {
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    title: 'Export data',
+    defaultPath: 'data.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }]
+  });
+
+  if (canceled || !filePath) return;
+
+  const data = readData();
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+});
+
+ipcMain.handle('import-data', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: 'Import data',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+    properties: ['openFile']
+  });
+
+  if (canceled || !filePaths.length) return false;
+
+  const raw = fs.readFileSync(filePaths[0], 'utf8');
+  const parsed = JSON.parse(raw);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('Невірний формат JSON');
+  }
+
+  // опціональна валідація
+  parsed.forEach(i => {
+    if (!i.id) {
+      throw new Error('Некоректний запис у JSON');
+    }
+  });
+
+  writeData(parsed);
+  return true;
 });
 
 async function requestRestart(

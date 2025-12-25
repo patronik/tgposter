@@ -50,10 +50,21 @@
       </div>   
       
       <div class="button-group">
-        <button id="add_btn" onclick="add()"><span class="material-icons">add</span></button>
-        <button id="save_btn" style="display: none;" onclick="save()"><span class="material-icons">save</span></button>
-      </div>
-          
+        <div>
+          <button id="add_btn" onclick="add()"><span class="material-icons">add</span></button>
+          <button id="save_btn" style="display: none;" onclick="save()"><span class="material-icons">save</span></button>
+        </div>        
+        <div>
+          <button onclick="exportData()">
+          <span class="material-icons">upload</span>
+        </button>
+        </div>
+        <div>
+          <button onclick="importData()">
+          <span class="material-icons">download</span>
+        </button>        
+        </div>                
+      </div>                
     </div>  
   </div>
 
