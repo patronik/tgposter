@@ -84,16 +84,16 @@ async function handlePrompt(prompt, input) {
   console.log(`LLM response: "${response}"`);
   logger(`LLM response: "${response}"`);  
 
-  let jsonResponse;
+  let jsonData;
   try {
-    jsonResponse = JSON.parse(response);    
+    jsonData = JSON.parse(response);    
   } catch (e) {        
   }
 
-  if (jsonResponse) {
+  if (jsonData) {
     result = {
       ...result,
-      ...jsonResponse
+      ...jsonData
     };
   } else {
     result.answer = response.replace(/^["']|["']$/g, '');  
@@ -260,11 +260,19 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
       if (prompt && LLMEnabled()) {
         // handle prompt        
         const res = await handlePrompt(prompt, targetMessage.message);
+                                                                                                                                                                        
         if (res.skip) {
           console.log(`Skip sending to ${groupid} due to agent directive`);
           logger(`Skip sending to ${groupid} due to agent directive`);
           return;
         }
+
+        if (!(res.answer.length > 0)) {
+          console.log(`Skip sending to ${groupid} due to empty answer`);
+          logger(`Skip sending to ${groupid} due to empty answer`);
+          return;
+        }
+
         params.message = res.answer;
       }
     }
@@ -320,6 +328,8 @@ async function reactToMessage(peer, groupid, reaction, target, sendAsPeer) {
     }
 
     await mtprotoCall('messages.sendReaction', params);
+
+    messagesSent++;
     console.log(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
     logger(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
   } catch (error) {
@@ -439,11 +449,19 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     if (prompt && LLMEnabled()) {      
       // handle prompt        
       const res = await handlePrompt(prompt, targetMessage.message);
+
       if (res.skip) {
         console.log(`Skip sending to ${groupid} due to agent directive`);
         logger(`Skip sending to ${groupid} due to agent directive`);
         return;
       }
+
+      if (!(res.answer.length > 0)) {
+        console.log(`Skip sending to ${groupid} due to empty answer`);
+        logger(`Skip sending to ${groupid} due to empty answer`);
+        return;
+      }
+
       params.message = res.answer;
     }
 
@@ -553,7 +571,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', params);
-    
+
     messagesSent++;
     console.log(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
     logger(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
@@ -599,11 +617,19 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
   if (prompt && LLMEnabled()) {
     // handle prompt        
     const res = await handlePrompt(prompt, discussionRoot.message);
+
     if (res.skip) {
       console.log(`Skip sending to ${groupid} due to agent directive`);
       logger(`Skip sending to ${groupid} due to agent directive`);
       return;
     } 
+
+    if (!(res.answer.length > 0)) {
+      console.log(`Skip sending to ${groupid} due to empty answer`);
+      logger(`Skip sending to ${groupid} due to empty answer`);
+      return;
+    }
+    
     text = res.answer;
   }
 
