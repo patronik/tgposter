@@ -268,8 +268,8 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
         }
 
         if (!(res.answer.length > 0)) {
-          console.log(`Skip sending to ${groupid} due to empty answer`);
-          logger(`Skip sending to ${groupid} due to empty answer`);
+          console.log(`Skip sending to ${groupid} due to an empty answer`);
+          logger(`Skip sending to ${groupid} due to an empty answer`);
           return;
         }
 
@@ -457,8 +457,8 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       }
 
       if (!(res.answer.length > 0)) {
-        console.log(`Skip sending to ${groupid} due to empty answer`);
-        logger(`Skip sending to ${groupid} due to empty answer`);
+        console.log(`Skip sending to ${groupid} due to an empty answer`);
+        logger(`Skip sending to ${groupid} due to an empty answer`);
         return;
       }
 
@@ -625,11 +625,11 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     } 
 
     if (!(res.answer.length > 0)) {
-      console.log(`Skip sending to ${groupid} due to empty answer`);
-      logger(`Skip sending to ${groupid} due to empty answer`);
+      console.log(`Skip sending to ${groupid} due to an empty answer`);
+      logger(`Skip sending to ${groupid} due to an empty answer`);
       return;
     }
-    
+
     text = res.answer;
   }
 
