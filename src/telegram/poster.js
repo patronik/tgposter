@@ -68,6 +68,15 @@ function getPeerType(peer) {
   return 'unknown';
 }
 
+async function handlePrompt(prompt, input) {
+  let result = {
+    continue: true
+  };  
+  const reply = await queryLLM(`${prompt} <<<${input}>>>`);
+  result.reply = reply.replace(/^["']|["']$/g, '');
+  return result;
+}
+
 async function ensureMembership(groupidOrInvite) {
   try {
     const inviteHash = extractInviteHash(groupidOrInvite);
@@ -224,8 +233,14 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
       params.reply_to_msg_id = targetMessage.id;
       
       if (prompt && LLMEnabled()) {
-        // reply with AI 
-        params.message = await queryLLM(`${prompt}. Повідомлення: "${targetMessage.message}"`);
+        // handle prompt        
+        const res = await handlePrompt(prompt, targetMessage.message);
+        if (!res.continue) {
+          console.log(`Skip sending to ${groupid} due to agentic scenario`);
+          logger(`Skip sending to ${groupid} due to agentic scenario`);
+          return;
+        }
+        params.message = res.reply;
       }
     }
 
@@ -395,9 +410,15 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       ).toString(),
     };
 
-    if (prompt && LLMEnabled()) {
-      // reply with AI 
-      params.message = await queryLLM(`${prompt} <<<${targetMessage.message}>>>`);
+    if (prompt && LLMEnabled()) {      
+      // handle prompt        
+      const res = await handlePrompt(prompt, targetMessage.message);
+      if (!res.continue) {
+        console.log(`Skip sending to ${groupid} due to agentic scenario`);
+        logger(`Skip sending to ${groupid} due to agentic scenario`);
+        return;
+      }
+      params.message = res.reply;
     }
 
     if (sendAsPeer) {
@@ -546,7 +567,14 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
 
   let text = comment;
   if (prompt && LLMEnabled()) {
-    text = await queryLLM(`${prompt} <<<${discussionRoot.message}>>>`);
+    // handle prompt        
+    const res = await handlePrompt(prompt, discussionRoot.message);
+    if (!res.continue) {
+      console.log(`Skip sending to ${groupid} due to agentic scenario`);
+      logger(`Skip sending to ${groupid} due to agentic scenario`);
+      return;
+    }    
+    text = res.reply;
   }
 
   await mtprotoCall('messages.sendMessage', {
