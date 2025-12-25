@@ -397,7 +397,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
     if (prompt && LLMEnabled()) {
       // reply with AI 
-      params.message = await queryLLM(`${prompt}. Повідомлення: "${targetMessage.message}"`);
+      params.message = await queryLLM(`${prompt} <<<${targetMessage.message}>>>`);
     }
 
     if (sendAsPeer) {
@@ -546,7 +546,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
 
   let text = comment;
   if (prompt && LLMEnabled()) {
-    text = await queryLLM(`${prompt}. Повідомлення: "${discussionRoot.message}"`);
+    text = await queryLLM(`${prompt} <<<${discussionRoot.message}>>>`);
   }
 
   await mtprotoCall('messages.sendMessage', {
