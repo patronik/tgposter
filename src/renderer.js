@@ -20,6 +20,14 @@ setInterval(
   100
 );
 
+setInterval(
+  async () => {
+    const messagesSent = await window.api.getMessagesSent();  
+    document.getElementById('messages_sent').innerText = messagesSent;
+  },
+  500
+);
+
 async function validateConfig() {  
   const config = await window.api.getConfig();
   const required = await window.api.getRequiredKeys();

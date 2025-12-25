@@ -8,6 +8,12 @@ const channelDebounce = new Map();
 const peerCache = new Map();
 const linkedChatCache = new Map();
 
+let messagesSent = 0;
+
+function getMessagesSent() {
+  return messagesSent;
+}
+
 let IS_RUNNING = false;
 let logger = function (data) {};
 
@@ -269,6 +275,7 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
 
     await mtprotoCall('messages.sendMessage', params);
 
+    messagesSent++;
     console.log(`✅ Message sent to ${groupid}`);
     logger(`✅ Message sent to ${groupid}`);
   } catch (error) {
@@ -447,6 +454,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     // 7️⃣ Відправляємо коментар
     await mtprotoCall('messages.sendMessage', params);
 
+    messagesSent++;
     console.log(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
     logger(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
   } catch (error) {
@@ -545,6 +553,8 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', params);
+    
+    messagesSent++;
     console.log(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
     logger(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
   } catch (error) {
@@ -565,6 +575,7 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   });
 
+  messagesSent++;
   console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
   logger(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
@@ -611,6 +622,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   });
 
+  messagesSent++;
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
   logger(`💬 Commented on new post ${postId} in ${channelGroupId}`);
 }
@@ -763,5 +775,6 @@ async function processGroups(requestCode, externalLogger) {
 }
 
 module.exports.processGroups = processGroups;
+module.exports.getMessagesSent = getMessagesSent;
 module.exports.getIsRunning = getIsRunning;
 module.exports.setIsRunning = setIsRunning;
