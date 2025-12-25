@@ -118,6 +118,19 @@ async function importData() {
   }
 }
 
+function renderTarget(key) {
+  switch (key) {
+    case '^':
+      return "реплай на новий пост";
+    case '$':
+      return "реплай до останнього";
+    case '*':
+      return "реплай до рандомного";
+    default:
+      return "по замовчуванню";
+  }
+}
+
 async function load() {  
   const items = await window.api.getItems();
   const tbody = document.getElementById('list');
@@ -129,7 +142,7 @@ async function load() {
       <td>${i.comment}</td> 
       <td>${i.reaction}</td>
       <td>${i.prompt}</td>
-      <td>${i.target}</td>
+      <td>${renderTarget(i.target)}</td>
       <td>                
         <div class="btn_container">
           <div><button onclick="edit('${i.id}')"><span class="material-icons">edit</span></button></div>
