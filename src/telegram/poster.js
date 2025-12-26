@@ -747,10 +747,23 @@ function scheduleDebouncedPost(
   channelDebounce.set(key, { postId, timer });
 }
 
+async function warmUpPeerCache() {
+  const data = readData();
+  console.log(`cache warmup start`);
+  logger(`cache warmup start`);
+  for (const group of data) {    
+    await getPeerCached(group.id);
+  }
+  console.log(`cache warmup end`);
+  logger(`cache warmup start`);
+}
+
 async function processGroups(requestCode, externalLogger) {
   try {        
     logger = externalLogger;
-    await authenticate(requestCode);         
+    await authenticate(requestCode);  
+    
+    await warmUpPeerCache();
 
     mtproto.updates.on('updates', async ({ updates }) => {
       if (!getIsRunning()) return;

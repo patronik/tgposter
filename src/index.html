@@ -73,11 +73,11 @@
           <div id="status"></div>
           <div><input type="code" id="code"/></div>
           <div><button id="send_code">Надіслати код</button></div>       
-
-          <div>📩 <span id="messages_sent">0</span></div>
+          
           <div class="spinner paused" id="mySpinner"></div>
           <div><button id="action_btn" type="button">Старт</button></div>
-          <div><button onclick="window.api.openDevTools(); return false;">Логи</button></div>                                     
+          <div><button onclick="window.api.openDevTools(); return false;"><span class="material-icons">terminal</span></button></div>                                      
+          <div><span class="material-icons">mail</span> <span id="messages_sent">0</span></div>
       </div>    
     </div>   
 
