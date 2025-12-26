@@ -44,7 +44,7 @@ actionBtn.onclick = async () => {
   try {            
     const isConfigValid = await validateConfig();
     if (!isConfigValid) {      
-      appStatus.innerHTML = `відсутня <a href="configuration.html">конфігурація</a>`;
+      appStatus.innerHTML = `відсутні <a href="configuration.html">налаштування</a>`;
       return;
     }
 
