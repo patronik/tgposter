@@ -754,6 +754,8 @@ async function warmUpPeerCache() {
   for (const group of data) {    
     await getPeerCached(group.id);
   }
+  console.log(`cache is ready`);
+  logger(`cache is ready`);
 }
 
 async function processGroups(requestCode, externalLogger) {
