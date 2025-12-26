@@ -53,16 +53,19 @@ function getSendAsChannel(channelPeer) {
   };
 }
 
-function getSendAsChannel() {
+function getSendAsConfig() {
   const sendAsChannel = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
   if (!sendAsChannel) {
     return null;
   }
 
-  const sendAsChannels = sendAsChannel.split(",");
-  if (sendAsChannels.length == 1) {
-    return sendAsChannels[0];
-  }
+  const sendAsChannels = sendAsChannel
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (sendAsChannels.length === 0) return null;
+  if (sendAsChannels.length === 1) return sendAsChannels[0];
 
   return sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
 }
@@ -239,7 +242,7 @@ async function getLastChannelPost(channelPeer) {
   return history.messages[0].id;
 }
 
-async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
+async function sendMessage(peer, groupid, message, target, prompt) {
   try {  
     const params = {
       peer: {
@@ -295,6 +298,17 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
       }
     }
 
+    let sendAsPeer;
+    const sendAsChannel = getSendAsConfig();
+    if (sendAsChannel) {
+      const sendAsChannelPeer = await getPeerCached(sendAsChannel);
+      if (sendAsChannelPeer.peer._ !== 'channel') {
+        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+      }
+      sendAsPeer = sendAsChannelPeer.peer;
+    }
+
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
@@ -310,7 +324,7 @@ async function sendMessage(peer, groupid, message, target, prompt, sendAsPeer) {
   }
 }
 
-async function reactToMessage(peer, groupid, reaction, target, sendAsPeer) {
+async function reactToMessage(peer, groupid, reaction, target) {
   try {    
     const history = await mtprotoCall('messages.getHistory', {
       peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
@@ -340,6 +354,17 @@ async function reactToMessage(peer, groupid, reaction, target, sendAsPeer) {
       reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
       big: false,
     };
+
+    let sendAsPeer;
+    const sendAsChannel = getSendAsConfig();
+    if (sendAsChannel) {
+      const sendAsChannelPeer = await getPeerCached(sendAsChannel);
+      if (sendAsChannelPeer.peer._ !== 'channel') {
+        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+      }
+      sendAsPeer = sendAsChannelPeer.peer;
+    }
 
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
@@ -378,7 +403,7 @@ async function findDiscussionMessage(linkedChatPeer, channelPeer, channelPostId)
   }
 }
 
-async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt, sendAsPeer) {
+async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
     const channelPostId = await getLastChannelPost(channelPeer);
@@ -483,6 +508,17 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       params.message = res.answer;
     }
 
+    let sendAsPeer;
+    const sendAsChannel = getSendAsConfig();
+    if (sendAsChannel) {
+      const sendAsChannelPeer = await getPeerCached(sendAsChannel);
+      if (sendAsChannelPeer.peer._ !== 'channel') {
+        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+      }
+      sendAsPeer = sendAsChannelPeer.peer;
+    }
+
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
@@ -499,7 +535,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
   }
 }
 
-async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction, sendAsPeer) {
+async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction) {
   try {
     /** 1️⃣ Отримуємо linked chat */
     const linkedChat = await getLinkedChatPeer(channelPeer);
@@ -554,7 +590,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     /** 6️⃣ Вибір target */
     let targetMessageId;
-    if (target === '$' || target === '$') {
+    if (target === '$' || target === '*') {
       if (!comments.length) {
         throw new Error('No comments for post');
       }
@@ -583,6 +619,17 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       big: false
     };
 
+    let sendAsPeer;
+    const sendAsChannel = getSendAsConfig();
+    if (sendAsChannel) {
+      const sendAsChannelPeer = await getPeerCached(sendAsChannel);
+      if (sendAsChannelPeer.peer._ !== 'channel') {
+        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+      }
+      sendAsPeer = sendAsChannelPeer.peer;
+    }
+
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
@@ -599,7 +646,18 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
   }
 }
 
-async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction, sendAsPeer) {
+async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction) {
+  let sendAsPeer;
+  const sendAsChannel = getSendAsConfig();
+  if (sendAsChannel) {
+    const sendAsChannelPeer = await getPeerCached(sendAsChannel);
+    if (sendAsChannelPeer.peer._ !== 'channel') {
+      logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+      throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+    }
+    sendAsPeer = sendAsChannelPeer.peer;
+  }
+
   await mtprotoCall('messages.sendReaction', {
     peer: {
       _: 'inputPeerChannel',
@@ -616,7 +674,7 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
   logger(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
 
-async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, prompt, sendAsPeer) {
+async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, prompt) {
   const linkedChat = await getLinkedChatPeer(channelPeer);
 
   if (linkedChat.peer.username) {
@@ -651,6 +709,17 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     text = res.answer;
   }
 
+  let sendAsPeer;
+  const sendAsChannel = getSendAsConfig();
+  if (sendAsChannel) {
+    const sendAsChannelPeer = await getPeerCached(sendAsChannel);
+    if (sendAsChannelPeer.peer._ !== 'channel') {
+      logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+      throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+    }
+    sendAsPeer = sendAsChannelPeer.peer;
+  }
+
   await mtprotoCall('messages.sendMessage', {
     peer: {
       _: 'inputPeerChannel',
@@ -674,8 +743,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
 async function handleDebouncedPost(
   channelPeer,
   groupConfig,
-  postId,
-  sendAsPeer
+  postId  
 ) {
   const { id, comment, reaction, prompt } = groupConfig;
 
@@ -693,8 +761,7 @@ async function handleDebouncedPost(
       id,
       postId,
       comment,
-      prompt,
-      sendAsPeer
+      prompt      
     );
   }
 
@@ -703,8 +770,7 @@ async function handleDebouncedPost(
       channelPeer,
       id,
       postId,
-      reaction,
-      sendAsPeer
+      reaction      
     );
   }
 }
@@ -712,8 +778,7 @@ async function handleDebouncedPost(
 function scheduleDebouncedPost(
   channelPeer,
   groupConfig,
-  postId,
-  sendAsPeer
+  postId  
 ) {
   const key = channelPeer.id;
 
@@ -728,8 +793,7 @@ function scheduleDebouncedPost(
       await handleDebouncedPost(
         channelPeer,
         groupConfig,
-        postId,
-        sendAsPeer
+        postId        
       );
     } catch (err) {
       console.error('❌ Debounced post handler error:', err);
@@ -744,18 +808,7 @@ function scheduleDebouncedPost(
 async function processGroups(requestCode, externalLogger) {
   try {        
     logger = externalLogger;
-    await authenticate(requestCode); 
-    
-    let sendAsPeer;
-    const sendAsChannel = getSendAsChannel();
-    if (sendAsChannel) {
-      const result = await getPeerCached(sendAsChannel);
-      if (result.peer._ !== 'channel') {
-        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-      }
-      sendAsPeer = result.peer;
-    }
+    await authenticate(requestCode);         
 
     mtproto.updates.on('updates', async ({ updates }) => {
       if (!getIsRunning()) return;
@@ -781,7 +834,7 @@ async function processGroups(requestCode, externalLogger) {
           if (peer._ !== 'channel') continue;
           if (peer.id !== channelId) continue;
     
-          scheduleDebouncedPost(peer, group, msg.id, sendAsPeer);
+          scheduleDebouncedPost(peer, group, msg.id);
         }
       }
     });
@@ -795,12 +848,12 @@ async function processGroups(requestCode, externalLogger) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment || prompt) await sendMessage(peer, id, comment, target, prompt, sendAsPeer);            
-          if (reaction) await reactToMessage(peer, id, reaction, target, sendAsPeer);                     
+          if (comment || prompt) await sendMessage(peer, id, comment, target, prompt);            
+          if (reaction) await reactToMessage(peer, id, reaction, target);                     
         } else if (type == 'channel') {
           if (target === '^') continue; 
-          if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt, sendAsPeer);                
-          if (reaction) await reactToCommentOfPost(peer, id, target, reaction, sendAsPeer);                           
+          if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt);                
+          if (reaction) await reactToCommentOfPost(peer, id, target, reaction);                           
         }      
 
       }
