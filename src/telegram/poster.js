@@ -687,20 +687,20 @@ async function handleDebouncedPost(
   groupConfig,
   postId  
 ) {
-  const { id, comment, reaction, prompt } = groupConfig;
+  const { groupid, comment, reaction, prompt } = groupConfig;
 
   const lastSeen = lastSeenChannelPost.get(channelPeer.id);
   if (lastSeen && postId <= lastSeen) return;
 
   lastSeenChannelPost.set(channelPeer.id, postId);
 
-  console.log(`⏳ Debounced post ${postId} in ${id}`);
-  logger(`⏳ Debounced post ${postId} in ${id}`);
+  console.log(`⏳ Debounced post ${postId} in ${groupid}`);
+  logger(`⏳ Debounced post ${postId} in ${groupid}`);
 
   if (comment || prompt) {
     await sendCommentToSpecificPost(
       channelPeer,
-      id,
+      groupid,
       postId,
       comment,
       prompt      
@@ -710,7 +710,7 @@ async function handleDebouncedPost(
   if (reaction) {
     await reactToSpecificPost(
       channelPeer,
-      id,
+      groupid,
       postId,
       reaction      
     );
@@ -764,7 +764,7 @@ async function preloadDialogs() {
 async function warmUpPeerCache() {
   const data = readData();  
   for (const group of data) {    
-    await getPeerCached(group.id);
+    await getPeerCached(group.groupid);
   }  
 }
 
@@ -793,8 +793,8 @@ async function processGroups(requestCode, externalLogger) {
         for (const group of data) {
           if (group.target !== '^') continue;
     
-          const { id } = group;
-          const { peer } = await getPeerCached(id);
+          const { groupid } = group;
+          const { peer } = await getPeerCached(groupid);
     
           if (peer._ !== 'channel') continue;
           if (peer.id !== channelId) continue;          
@@ -807,19 +807,19 @@ async function processGroups(requestCode, externalLogger) {
     while (getIsRunning()) {
       const data = readData();      
       for (const group of data) {        
-        const { id, comment, reaction, prompt, target } = group;
+        const { groupid, comment, reaction, prompt, target } = group;
 
         if (target == '^') continue;        
 
-        const { peer } = await getPeerCached(id);
+        const { peer } = await getPeerCached(groupid);
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment || prompt) await sendMessage(peer, id, comment, target, prompt);            
-          if (reaction) await reactToMessage(peer, id, reaction, target);                     
+          if (comment || prompt) await sendMessage(peer, groupid, comment, target, prompt);            
+          if (reaction) await reactToMessage(peer, groupid, reaction, target);                     
         } else if (type == 'channel') {          
-          if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt);                
-          if (reaction) await reactToCommentOfPost(peer, id, target, reaction);                           
+          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, prompt);                
+          if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction);                           
         }      
 
       }
