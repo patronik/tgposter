@@ -795,18 +795,19 @@ async function processGroups(requestCode, externalLogger) {
     });
     
     while (getIsRunning()) {
-      const data = readData();
+      const data = readData();      
       for (const group of data) {        
         const { id, comment, reaction, prompt, target } = group;
 
+        if (target == '^') continue;        
+        
         const { peer } = await getPeerCached(id);
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
           if (comment || prompt) await sendMessage(peer, id, comment, target, prompt);            
           if (reaction) await reactToMessage(peer, id, reaction, target);                     
-        } else if (type == 'channel') {
-          if (target === '^') continue; 
+        } else if (type == 'channel') {          
           if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt);                
           if (reaction) await reactToCommentOfPost(peer, id, target, reaction);                           
         }      
