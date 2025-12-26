@@ -750,6 +750,17 @@ function scheduleDebouncedPost(
   logger(`post scheduled`);
 }
 
+async function preloadDialogs() {
+  await mtprotoCall('messages.getDialogs', {
+    offset_date: 0,
+    offset_id: 0,
+    offset_peer: { _: 'inputPeerEmpty' },
+    limit: 200,
+    hash: 0
+  });
+  console.log('📂 Dialogs preloaded');
+}
+
 async function warmUpPeerCache() {
   const data = readData();  
   for (const group of data) {    
@@ -761,7 +772,7 @@ async function processGroups(requestCode, externalLogger) {
   try {        
     logger = externalLogger;
     await authenticate(requestCode);  
-    
+    await preloadDialogs();
     await warmUpPeerCache();
 
     mtproto.updates.on('updates', async ({ updates }) => {
