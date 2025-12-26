@@ -728,7 +728,7 @@ function scheduleDebouncedPost(
   if (existing?.timer) {
     clearTimeout(existing.timer);
   }
-
+  
   const delay = parseInt((getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || 10), 10) * 1000;
   const timer = setTimeout(async () => {
     try {
@@ -745,17 +745,16 @@ function scheduleDebouncedPost(
   }, delay);
 
   channelDebounce.set(key, { postId, timer });
+
+  console.log(`post scheduled`);
+  logger(`post scheduled`);
 }
 
 async function warmUpPeerCache() {
-  const data = readData();
-  console.log(`warming up cache`);
-  logger(`warming up cache`);
+  const data = readData();  
   for (const group of data) {    
     await getPeerCached(group.id);
-  }
-  console.log(`cache is ready`);
-  logger(`cache is ready`);
+  }  
 }
 
 async function processGroups(requestCode, externalLogger) {
