@@ -378,7 +378,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
   }
 }
 
-async function findDiscussionMessage(channelPeer, channelPostId) {
+async function findDiscussionRoot(channelPeer, channelPostId) {
   const res = await mtprotoCall('messages.getDiscussionMessage', {
     peer: {
       _: 'inputPeerChannel',
@@ -420,7 +420,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     }
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
-    const discussionRoot = await findDiscussionMessage(channelPeer, channelPostId);
+    const discussionRoot = await findDiscussionRoot(channelPeer, channelPostId);
 
     if (!discussionRoot.id) {
       throw new Error('Discussion root not found for last channel post');
@@ -546,7 +546,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     console.log(`📰 Last channel post ID: ${lastPost.id}`);
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
-    const discussionRoot = await findDiscussionMessage(channelPeer, lastPost.id);
+    const discussionRoot = await findDiscussionRoot(channelPeer, lastPost.id);
 
     if (!discussionRoot.id) {
       throw new Error('Discussion root not found for last channel post');
@@ -644,7 +644,9 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
   }
 
   // Знаходимо discussion root для ОСТАННЬОГО поста
-  const discussionRoot = await findDiscussionMessage(channelPeer, postId);
+  const discussionRoot = await findDiscussionRoot(channelPeer, postId);
+
+  console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
 
   let text = comment;
   if (prompt && LLMEnabled()) {
