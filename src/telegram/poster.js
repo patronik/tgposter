@@ -290,10 +290,7 @@ async function sendMessage(peer, groupid, message, target, prompt) {
         targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
       }         
 
-      params.reply_to = {
-        _: 'inputReplyToMessage',
-        reply_to_msg_id: targetMessage.id
-      };
+      params.reply_to_msg_id = targetMessage.id;
       
       if (prompt && LLMEnabled()) {
         // handle prompt        
@@ -429,29 +426,30 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
 
     // 5️⃣ Обробка target
-    let targetMessage;
-    // Беремо історію коментарів
-    const history = await mtprotoCall('messages.getHistory', {
-      peer: {
-        _: 'inputPeerChannel',
-        channel_id: linkedChat.peer.id,
-        access_hash: linkedChat.peer.access_hash,
-      },
-      limit: 100,
-    });
-
-    // 🔒 ТІЛЬКИ коментарі цього поста (перший рівень)
-    const postComments = (history.messages || []).filter(m =>
-      m._ === 'message' &&
-      m.id &&
-      m.reply_to &&
-      m.reply_to.reply_to_msg_id === discussionRoot.id
-    );
-
+    let targetMessage;    
     if (target === '$' || target === '*') { 
+      // Беремо історію коментарів
+      const history = await mtprotoCall('messages.getHistory', {
+        peer: {
+          _: 'inputPeerChannel',
+          channel_id: linkedChat.peer.id,
+          access_hash: linkedChat.peer.access_hash,
+        },
+        limit: 100,
+      });
+
+      // 🔒 ТІЛЬКИ коментарі цього поста (перший рівень)
+      const postComments = (history.messages || []).filter(m =>
+        m._ === 'message' &&
+        m.id &&
+        m.reply_to &&
+        m.reply_to.reply_to_msg_id === discussionRoot.id
+      );
+      
       if (!postComments.length) {
         throw new Error('No comments found for post');
       }
+      
       if (target === '$') {
         targetMessage = postComments[0];
         console.log(`💬 Last comment ID: ${targetMessage.id}`);
@@ -473,10 +471,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
         access_hash: linkedChat.peer.access_hash,
       },
       message: comment,
-      reply_to: {
-        _: 'inputReplyToMessage',
-        reply_to_msg_id: targetMessage.id,
-      },
+      reply_to_msg_id: targetMessage.id,
       random_id: (
         BigInt(Date.now()) * 1000n +
         BigInt(Math.floor(Math.random() * 1000))
@@ -677,10 +672,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
       access_hash: linkedChat.peer.access_hash
     },
     message: text,
-    reply_to: {
-      _: 'inputReplyToMessage',
-      reply_to_msg_id: discussionRoot.id
-    },
+    reply_to_msg_id: discussionRoot.id,
     random_id: BigInt(Date.now()).toString(),
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   });
