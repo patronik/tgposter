@@ -53,6 +53,20 @@ function getSendAsChannel(channelPeer) {
   };
 }
 
+function getSendAsChannel() {
+  const sendAsChannel = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
+  if (!sendAsChannel) {
+    return null;
+  }
+
+  const sendAsChannels = sendAsChannel.split(",");
+  if (sendAsChannels.length == 1) {
+    return sendAsChannels[0];
+  }
+
+  return sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
+}
+
 async function getPeerCached(id) {
   if (peerCache.has(id)) return peerCache.get(id);
   const res = await ensureMembership(id);
@@ -725,20 +739,6 @@ function scheduleDebouncedPost(
   }, delay);
 
   channelDebounce.set(key, { postId, timer });
-}
-
-function getSendAsChannel() {
-  const sendAsChannel = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
-  if (!sendAsChannel) {
-    return null;
-  }
-
-  const sendAsChannels = sendAsChannel.split(",");
-  if (sendAsChannels.length == 1) {
-    return sendAsChannels[0];
-  }
-
-  return sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
 }
 
 async function processGroups(requestCode, externalLogger) {
