@@ -90,14 +90,18 @@ async function handlePrompt(prompt, input) {
   } catch (e) {        
   }
 
-  if (jsonData) {
+  if (jsonData) {    
     result = {
       ...result,
       ...jsonData
     };
   } else {
-    result.answer = response.replace(/^["']|["']$/g, '');  
+    result.answer = response;  
   }  
+
+  if (result.answer) {
+    result.answer = result.answer.replace(/^["']|["']$/g, '');  
+  }
 
   return result;
 }
