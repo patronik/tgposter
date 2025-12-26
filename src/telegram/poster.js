@@ -83,10 +83,6 @@ async function getSendAsPeer() {
     sendAsChannel = sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
   }
   
-  if (!sendAsChannel) {
-    return null;
-  }
-
   const sendAsChannelPeer = await getPeerCached(sendAsChannel);
   if (sendAsChannelPeer.peer._ !== 'channel') {
     logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
