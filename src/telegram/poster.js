@@ -727,15 +727,29 @@ function scheduleDebouncedPost(
   channelDebounce.set(key, { postId, timer });
 }
 
+function getSendAsChannel() {
+  const sendAsChannel = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
+  if (!sendAsChannel) {
+    return null;
+  }
+
+  const sendAsChannels = sendAsChannel.split(",");
+  if (sendAsChannels.length == 1) {
+    return sendAsChannels[0];
+  }
+
+  return sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
+}
+
 async function processGroups(requestCode, externalLogger) {
   try {        
     logger = externalLogger;
     await authenticate(requestCode); 
     
     let sendAsPeer;
-    const sendAsId = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
-    if (sendAsId) {
-      const result = await getPeerCached(sendAsId);
+    const sendAsChannel = getSendAsChannel();
+    if (sendAsChannel) {
+      const result = await getPeerCached(sendAsChannel);
       if (result.peer._ !== 'channel') {
         logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
         throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
