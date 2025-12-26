@@ -272,7 +272,7 @@ async function sendMessage(peer, groupid, message, target, prompt) {
     if (target === '*' || target === '$') {
       const history = await mtprotoCall('messages.getHistory', {
         peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
-        limit: 10,
+        limit: 100,
       });
       
       const validMessages = (history.messages || []).filter(
@@ -332,7 +332,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
   try {    
     const history = await mtprotoCall('messages.getHistory', {
       peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
-      limit: 10,
+      limit: 100,
     });
 
     const validMessages = (history.messages || []).filter(
@@ -449,7 +449,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       if (!postComments.length) {
         throw new Error('No comments found for post');
       }
-      
+
       if (target === '$') {
         targetMessage = postComments[0];
         console.log(`💬 Last comment ID: ${targetMessage.id}`);
