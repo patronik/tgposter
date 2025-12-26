@@ -53,28 +53,46 @@ function getSendAsChannel(channelPeer) {
   };
 }
 
-function getSendAsConfig() {
-  const sendAsChannel = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
-  if (!sendAsChannel) {
-    return null;
-  }
-
-  const sendAsChannels = sendAsChannel
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
-
-  if (sendAsChannels.length === 0) return null;
-  if (sendAsChannels.length === 1) return sendAsChannels[0];
-
-  return sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
-}
-
 async function getPeerCached(id) {
   if (peerCache.has(id)) return peerCache.get(id);
   const res = await ensureMembership(id);
   peerCache.set(id, res);
   return res;
+}
+
+async function getSendAsPeer() {
+  const sendAsConfig = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
+  if (!sendAsConfig) {
+    return null;
+  }
+
+  const sendAsChannels = sendAsConfig
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (sendAsChannels.length === 0) {
+    return null;
+  }
+
+  let sendAsChannel;
+  
+  if (sendAsChannels.length === 1) {
+    sendAsChannel = sendAsChannels[0];
+  } else {
+    sendAsChannel = sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
+  }
+  
+  if (!sendAsChannel) {
+    return null;
+  }
+
+  const sendAsChannelPeer = await getPeerCached(sendAsChannel);
+  if (sendAsChannelPeer.peer._ !== 'channel') {
+    logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+    throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+  }
+  return sendAsChannelPeer.peer;
 }
 
 function getPeerType(peer) {
@@ -298,17 +316,7 @@ async function sendMessage(peer, groupid, message, target, prompt) {
       }
     }
 
-    let sendAsPeer;
-    const sendAsChannel = getSendAsConfig();
-    if (sendAsChannel) {
-      const sendAsChannelPeer = await getPeerCached(sendAsChannel);
-      if (sendAsChannelPeer.peer._ !== 'channel') {
-        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-      }
-      sendAsPeer = sendAsChannelPeer.peer;
-    }
-
+    let sendAsPeer = await getSendAsPeer();    
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
@@ -355,17 +363,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
       big: false,
     };
 
-    let sendAsPeer;
-    const sendAsChannel = getSendAsConfig();
-    if (sendAsChannel) {
-      const sendAsChannelPeer = await getPeerCached(sendAsChannel);
-      if (sendAsChannelPeer.peer._ !== 'channel') {
-        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-      }
-      sendAsPeer = sendAsChannelPeer.peer;
-    }
-
+    let sendAsPeer = await getSendAsPeer();    
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
@@ -494,31 +492,21 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       const res = await handlePrompt(prompt, targetMessage.message);
 
       if (res.skip) {
-        console.log(`Skip sending to ${groupid} due to agent directive`);
-        logger(`Skip sending to ${groupid} due to agent directive`);
+        console.log(`Skip sending to ${channelGroupId} due to agent directive`);
+        logger(`Skip sending to ${channelGroupId} due to agent directive`);
         return;
       }
 
       if (!(res.answer.length > 0)) {
-        console.log(`Skip sending to ${groupid} due to an empty answer`);
-        logger(`Skip sending to ${groupid} due to an empty answer`);
+        console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
+        logger(`Skip sending to ${channelGroupId} due to an empty answer`);
         return;
       }
 
       params.message = res.answer;
     }
 
-    let sendAsPeer;
-    const sendAsChannel = getSendAsConfig();
-    if (sendAsChannel) {
-      const sendAsChannelPeer = await getPeerCached(sendAsChannel);
-      if (sendAsChannelPeer.peer._ !== 'channel') {
-        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-      }
-      sendAsPeer = sendAsChannelPeer.peer;
-    }
-
+    let sendAsPeer = await getSendAsPeer();    
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
@@ -619,17 +607,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       big: false
     };
 
-    let sendAsPeer;
-    const sendAsChannel = getSendAsConfig();
-    if (sendAsChannel) {
-      const sendAsChannelPeer = await getPeerCached(sendAsChannel);
-      if (sendAsChannelPeer.peer._ !== 'channel') {
-        logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-        throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-      }
-      sendAsPeer = sendAsChannelPeer.peer;
-    }
-
+    let sendAsPeer = await getSendAsPeer();    
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
@@ -647,17 +625,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 }
 
 async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction) {
-  let sendAsPeer;
-  const sendAsChannel = getSendAsConfig();
-  if (sendAsChannel) {
-    const sendAsChannelPeer = await getPeerCached(sendAsChannel);
-    if (sendAsChannelPeer.peer._ !== 'channel') {
-      logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-      throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-    }
-    sendAsPeer = sendAsChannelPeer.peer;
-  }
-
+  let sendAsPeer = await getSendAsPeer();  
   await mtprotoCall('messages.sendReaction', {
     peer: {
       _: 'inputPeerChannel',
@@ -695,30 +663,21 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     const res = await handlePrompt(prompt, discussionRoot.message);
 
     if (res.skip) {
-      console.log(`Skip sending to ${groupid} due to agent directive`);
-      logger(`Skip sending to ${groupid} due to agent directive`);
+      console.log(`Skip sending to ${channelGroupId} due to agent directive`);
+      logger(`Skip sending to ${channelGroupId} due to agent directive`);
       return;
     } 
 
     if (!(res.answer.length > 0)) {
-      console.log(`Skip sending to ${groupid} due to an empty answer`);
-      logger(`Skip sending to ${groupid} due to an empty answer`);
+      console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
+      logger(`Skip sending to ${channelGroupId} due to an empty answer`);
       return;
     }
 
     text = res.answer;
   }
 
-  let sendAsPeer;
-  const sendAsChannel = getSendAsConfig();
-  if (sendAsChannel) {
-    const sendAsChannelPeer = await getPeerCached(sendAsChannel);
-    if (sendAsChannelPeer.peer._ !== 'channel') {
-      logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-      throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
-    }
-    sendAsPeer = sendAsChannelPeer.peer;
-  }
+  let sendAsPeer = await getSendAsPeer();  
 
   await mtprotoCall('messages.sendMessage', {
     peer: {
