@@ -3,6 +3,9 @@ const { mtproto, authenticate } = require(`./mtproto`);
 const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
+const DEFAULT_API_DELAY = 10;
+const DEFAULT_ITERATION_DELAY = 60;
+
 const lastSeenChannelPost = new Map();
 const channelDebounce = new Map();
 const peerCache = new Map();
@@ -27,7 +30,12 @@ function setIsRunning(value) {
 
 async function mtprotoCall(method, data) {
   const result = await mtproto.call(method, data);
-  await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 1000);
+  await sleep(
+    parseInt(
+      (getConfigItem('TELEGRAM_API_DELAY') || DEFAULT_API_DELAY)
+      , 10
+    ) * 1000
+  );
   return result;
 }
 
@@ -749,13 +757,13 @@ function scheduleDebouncedPost(
 
 async function warmUpPeerCache() {
   const data = readData();
-  console.log(`cache warmup start`);
-  logger(`cache warmup start`);
+  console.log(`cache warming up start`);
+  logger(`cache warming up start`);
   for (const group of data) {    
     await getPeerCached(group.id);
   }
-  console.log(`cache warmup end`);
-  logger(`cache warmup start`);
+  console.log(`cache warming up end`);
+  logger(`cache warming up end`);
 }
 
 async function processGroups(requestCode, externalLogger) {
@@ -811,9 +819,13 @@ async function processGroups(requestCode, externalLogger) {
           if (comment || prompt) await sendCommentToPost(peer, id, target, comment, prompt);                
           if (reaction) await reactToCommentOfPost(peer, id, target, reaction);                           
         }      
-
       }
-      await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 1000);
+      await sleep(
+        parseInt(
+          (getConfigItem('TELEGRAM_ITERATION_DELAY') || DEFAULT_ITERATION_DELAY)
+          ,10
+        ) * 1000
+      );
     }  
   } catch (err) {
     console.log(err);
