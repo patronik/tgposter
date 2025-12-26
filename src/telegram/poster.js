@@ -749,8 +749,8 @@ function scheduleDebouncedPost(
 
 async function warmUpPeerCache() {
   const data = readData();
-  console.log(`cache warming up`);
-  logger(`cache warming up`);
+  console.log(`warming up cache`);
+  logger(`warming up cache`);
   for (const group of data) {    
     await getPeerCached(group.id);
   }
