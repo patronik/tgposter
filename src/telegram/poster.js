@@ -288,9 +288,12 @@ async function sendMessage(peer, groupid, message, target, prompt) {
         targetMessage = validMessages[0];
       } else if (target == '*')  {
         targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
-      }   
+      }         
 
-      params.reply_to_msg_id = targetMessage.id;
+      params.reply_to = {
+        _: 'inputReplyToMessage',
+        reply_to_msg_id: targetMessage.id
+      };
       
       if (prompt && LLMEnabled()) {
         // handle prompt        
@@ -375,26 +378,27 @@ async function reactToMessage(peer, groupid, reaction, target) {
   }
 }
 
-async function findDiscussionMessage(linkedChatPeer, channelPeer, channelPostId) {
-  try {
-    const history = await mtprotoCall('messages.getHistory', {
-      peer: { _: 'inputPeerChannel', channel_id: linkedChatPeer.id, access_hash: linkedChatPeer.access_hash },
-      limit: 100,
-    });
+async function findDiscussionMessage(channelPeer, channelPostId) {
+  const res = await mtprotoCall('messages.getDiscussionMessage', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: channelPeer.id,
+      access_hash: channelPeer.access_hash
+    },
+    msg_id: channelPostId
+  });
 
-    const discussionMsg = history.messages.find(msg => 
-      msg.fwd_from?.saved_from_peer?.channel_id === channelPeer.id &&
-      msg.fwd_from?.saved_from_msg_id === channelPostId
-    );
+  // Find the true thread root
+  const root = res.messages.find(m =>
+    m.replies ||
+    m.reply_to_top_id === m.id
+  );
 
-    if (!discussionMsg) {
-      throw new Error('No discussion message found - maybe delayed?');
-    }
-    return discussionMsg;
-  } catch (error) {
-    console.error('Discussion message search failed:', error);
-    throw error;
+  if (!root) {
+    throw new Error('Discussion thread root not found yet');
   }
+
+  return root;
 }
 
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
@@ -416,11 +420,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     }
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
-    const discussionRoot = await findDiscussionMessage(
-      linkedChat.peer,
-      channelPeer,
-      channelPostId
-    );
+    const discussionRoot = await findDiscussionMessage(channelPeer, channelPostId);
 
     if (!discussionRoot.id) {
       throw new Error('Discussion root not found for last channel post');
@@ -546,11 +546,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     console.log(`📰 Last channel post ID: ${lastPost.id}`);
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
-    const discussionRoot = await findDiscussionMessage(
-      linkedChat.peer,
-      channelPeer,
-      lastPost.id
-    );
+    const discussionRoot = await findDiscussionMessage(channelPeer, lastPost.id);
 
     if (!discussionRoot.id) {
       throw new Error('Discussion root not found for last channel post');
@@ -647,11 +643,8 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     await getPeerCached(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
   }
 
-  const discussionRoot = await findDiscussionMessage(
-    linkedChat.peer,
-    channelPeer,
-    postId
-  );
+  // Знаходимо discussion root для ОСТАННЬОГО поста
+  const discussionRoot = await findDiscussionMessage(channelPeer, postId);
 
   let text = comment;
   if (prompt && LLMEnabled()) {
@@ -787,7 +780,7 @@ async function processGroups(requestCode, externalLogger) {
           const { peer } = await getPeerCached(id);
     
           if (peer._ !== 'channel') continue;
-          if (peer.id !== channelId) continue;
+          if (peer.id !== channelId) continue;          
     
           scheduleDebouncedPost(peer, group, msg.id);
         }
@@ -800,7 +793,7 @@ async function processGroups(requestCode, externalLogger) {
         const { id, comment, reaction, prompt, target } = group;
 
         if (target == '^') continue;        
-        
+
         const { peer } = await getPeerCached(id);
         const type = getPeerType(peer);
 
