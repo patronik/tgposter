@@ -5,7 +5,7 @@ const { queryLLM, LLMEnabled } = require('../ai');
 
 const lastSeenChannelPost = new Map();
 const channelDebounce = new Map();
-const peerCache = new Map();
+const channelPeerCache = new Map();
 const linkedChatCache = new Map();
 
 let messagesSent = 0;
@@ -54,9 +54,9 @@ function getSendAsChannel(channelPeer) {
 }
 
 async function getPeerCached(id) {
-  if (peerCache.has(id)) return peerCache.get(id);
+  if (channelPeerCache.has(id)) return channelPeerCache.get(id);
   const res = await ensureMembership(id);
-  peerCache.set(id, res);
+  channelPeerCache.set(id, res);
   return res;
 }
 
