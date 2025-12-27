@@ -88,6 +88,7 @@ async function getSendAsPeer() {
     logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
     throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
   }
+  
   return sendAsChannelPeer.peer;
 }
 
