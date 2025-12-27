@@ -92,11 +92,6 @@ sendCodeBtn.onclick = async () => {
   }
 };
 
-// on log event
-window.api.onLog((data) => {
-  console.log(data);
-});
-
 async function exportData() {
   try {
     await window.api.exportData();

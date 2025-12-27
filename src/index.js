@@ -55,10 +55,6 @@ app.on('window-all-closed', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
 
-function externalLogger(data) {
-  mainWindow.webContents.send('log', data);
-}
-
 ipcMain.handle('open-devtools', () => {
   if (mainWindow) {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -119,20 +115,17 @@ ipcMain.handle('start', (_) => {
   setIsRunning(true);  
   if (TASK_COUNT > 0) {    
     console.log(`already running`);
-    externalLogger(`already running`);    
     return;
   }
   TASK_COUNT++;      
-  const task = processGroups(requestCode, externalLogger);
+  const task = processGroups(requestCode);
   task.then(() => TASK_COUNT--);
   console.log(`started`);
-  externalLogger(`started`);
 });
 
 ipcMain.handle('stop', (_) => {
   setIsRunning(false);  
   console.log(`stopped`);
-  externalLogger(`stopped`);
 });
 
 ipcMain.handle('get-is-running', () => {

@@ -15,7 +15,6 @@ function getMessagesSent() {
 }
 
 let IS_RUNNING = false;
-let logger = function (data) {};
 
 function getIsRunning() {
   return IS_RUNNING;
@@ -85,7 +84,6 @@ async function getSendAsPeer() {
   
   const sendAsChannelPeer = await getPeerCached(sendAsChannel);
   if (sendAsChannelPeer.peer._ !== 'channel') {
-    logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
     throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
   }
   
@@ -114,7 +112,6 @@ async function handlePrompt(prompt, input) {
 
   const response = await queryLLM(`${prompt} <<<${input}>>>`);
   console.log(`LLM response: "${response}"`);
-  logger(`LLM response: "${response}"`);  
 
   let jsonData;
   try {
@@ -299,13 +296,11 @@ async function sendMessage(peer, groupid, message, target, prompt) {
                                                                                                                                                                         
         if (res.skip) {
           console.log(`Skip sending to ${groupid} due to agent directive`);
-          logger(`Skip sending to ${groupid} due to agent directive`);
           return;
         }
 
         if (!(res.answer.length > 0)) {
           console.log(`Skip sending to ${groupid} due to an empty answer`);
-          logger(`Skip sending to ${groupid} due to an empty answer`);
           return;
         }
 
@@ -322,10 +317,8 @@ async function sendMessage(peer, groupid, message, target, prompt) {
 
     messagesSent++;
     console.log(`✅ Message sent to ${groupid}`);
-    logger(`✅ Message sent to ${groupid}`);
   } catch (error) {
     console.error(`❌ Error sending to ${groupid}:`, error);
-    logger(`❌ Error sending to ${groupid}: ${JSON.stringify(error)}`);
   }
 }
 
@@ -369,10 +362,8 @@ async function reactToMessage(peer, groupid, reaction, target) {
 
     messagesSent++;
     console.log(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
-    logger(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
-    logger(`❌ React error in ${groupid}: ${JSON.stringify(error)}`);
   }
 }
 
@@ -485,13 +476,11 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
       if (res.skip) {
         console.log(`Skip sending to ${channelGroupId} due to agent directive`);
-        logger(`Skip sending to ${channelGroupId} due to agent directive`);
         return;
       }
 
       if (!(res.answer.length > 0)) {
         console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
-        logger(`Skip sending to ${channelGroupId} due to an empty answer`);
         return;
       }
 
@@ -508,10 +497,8 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
     messagesSent++;
     console.log(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
-    logger(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
-    logger(`❌ sendCommentToPost error: ${JSON.stringify(error)}`);
   }
 }
 
@@ -605,10 +592,8 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     messagesSent++;
     console.log(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
-    logger(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ Comment react error:', error);
-    logger(`❌ Comment react error: ${JSON.stringify(error)}`);
   }
 }
 
@@ -627,7 +612,6 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
 
   messagesSent++;
   console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
-  logger(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
 
 async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, prompt) {
@@ -651,13 +635,11 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
 
     if (res.skip) {
       console.log(`Skip sending to ${channelGroupId} due to agent directive`);
-      logger(`Skip sending to ${channelGroupId} due to agent directive`);
       return;
     } 
 
     if (!(res.answer.length > 0)) {
       console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
-      logger(`Skip sending to ${channelGroupId} due to an empty answer`);
       return;
     }
 
@@ -680,7 +662,6 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
 
   messagesSent++;
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
-  logger(`💬 Commented on new post ${postId} in ${channelGroupId}`);
 }
 
 async function handleDebouncedPost(
@@ -698,7 +679,6 @@ async function handleDebouncedPost(
   lastSeenChannelPost.set(key, postId);
 
   console.log(`⏳ Debounced post ${postId} in ${groupid}`);
-  logger(`⏳ Debounced post ${postId} in ${groupid}`);
 
   if (comment || prompt) {
     await sendCommentToSpecificPost(
@@ -750,7 +730,6 @@ function scheduleDebouncedPost(
   channelDebounce.set(key, { postId, timer });
 
   console.log(`post scheduled`);
-  logger(`post scheduled`);
 }
 
 async function preloadDialogs() {
@@ -771,9 +750,8 @@ async function warmUpPeerCache() {
   }  
 }
 
-async function processGroups(requestCode, externalLogger) {
+async function processGroups(requestCode) {
   try {        
-    logger = externalLogger;
     await authenticate(requestCode);  
     await preloadDialogs();
     await warmUpPeerCache();
@@ -836,7 +814,6 @@ async function processGroups(requestCode, externalLogger) {
     lastSeenChannelPost.clear();
     channelDebounce.clear();
     console.log(`exiting`);
-    externalLogger(`exiting`);
   }    
 }
 
