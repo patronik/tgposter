@@ -688,11 +688,13 @@ async function handleDebouncedPost(
   postId  
 ) {
   const { groupid, comment, reaction, prompt } = groupConfig;
+  
+  const key = `${channelPeer.id}:${groupConfig.id}`;
+  const lastSeen = lastSeenChannelPost.get(key);
 
-  const lastSeen = lastSeenChannelPost.get(channelPeer.id);
   if (lastSeen && postId <= lastSeen) return;
 
-  lastSeenChannelPost.set(channelPeer.id, postId);
+  lastSeenChannelPost.set(key, postId);
 
   console.log(`⏳ Debounced post ${postId} in ${groupid}`);
   logger(`⏳ Debounced post ${postId} in ${groupid}`);
@@ -722,7 +724,7 @@ function scheduleDebouncedPost(
   groupConfig,
   postId  
 ) {
-  const key = channelPeer.id;
+  const key = `${channelPeer.id}:${groupConfig.id}`;
 
   const existing = channelDebounce.get(key);
   if (existing?.timer) {

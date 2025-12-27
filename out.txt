@@ -1,0 +1,2157 @@
+
+./forge.config.js
+const { FusesPlugin } = require('@electron-forge/plugin-fuses');
+const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+
+module.exports = {
+  packagerConfig: {
+    asar: true,
+  },
+  rebuildConfig: {},
+  makers: [
+    {
+      name: '@electron-forge/maker-squirrel',
+      config: {},
+    },
+    {
+      name: '@electron-forge/maker-zip',
+      platforms: ['darwin'],
+    },
+    {
+      name: '@electron-forge/maker-deb',
+      config: {},
+    },
+    {
+      name: '@electron-forge/maker-rpm',
+      config: {},
+    },
+  ],
+  plugins: [
+    {
+      name: '@electron-forge/plugin-auto-unpack-natives',
+      config: {},
+    },
+    // Fuses are used to enable/disable various Electron functionality
+    // at package time, before code signing the application
+    new FusesPlugin({
+      version: FuseVersion.V1,
+      [FuseV1Options.RunAsNode]: false,
+      [FuseV1Options.EnableCookieEncryption]: true,
+      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+      [FuseV1Options.EnableNodeCliInspectArguments]: false,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+    }),
+  ],
+};
+./tmp.txt
+find . \( -path "./node_modules" -o -path "./src/images" -o -path "./out" -o -path "./.git" -o -path "./.vscode" -o name ".gitignore" -o name "package-lock.json" -o name "forge.config.js" \) -prune   -o -type f ! -name "out.txt" -print | while IFS= read -r file; do   echo "$file" >> out.txt;   cat "$file" >> out.txt; done
+./src/index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TGPoster</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+ <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <div class="container">    
+    <h2>TGPoster</h2>
+    <a href="index.html">&#x2302; Головна</a>
+    <a href="configuration.html">⚙ Налаштування</a>  
+    <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg> Допомога</a> 
+    
+    <div class="form-grid">
+      <div class="form-group"> 
+        <input type="hidden" id="id" value="">       
+        <label for="groupid">Група/Канал</label>
+        <input id="groupid"/>
+      </div>
+      
+      <div class="form-group">
+        <label for="comment">Повідомлення</label>
+        <textarea id="comment"></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label for="reaction">Реакція</label>
+        <input id="reaction" />
+      </div>
+      
+      <div class="form-group">
+        <label for="prompt">ШІ Промт</label>        
+        <textarea id="prompt"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="target">Реплай</label>
+        <select id="target">
+          <option value="">по замовчуванню</option>
+          <option value="^">реплай на новий пост</option>
+          <option value="$">реплай до останнього</option>
+          <option value="*">реплай до рандомного</option>
+        </select>        
+      </div>   
+      
+      <div class="button-group">
+        <div>
+          <button id="add_btn" onclick="add()"><span class="material-icons">add</span></button>
+          <button id="save_btn" style="display: none;" onclick="save()"><span class="material-icons">save</span></button>
+        </div>        
+        <div>
+          <button onclick="exportData()">
+          <span class="material-icons">upload</span>
+        </button>
+        </div>
+        <div>
+          <button onclick="importData()">
+          <span class="material-icons">download</span>
+        </button>        
+        </div>                
+      </div>                
+    </div>  
+  </div>
+
+    <div class="container">    
+      <div class="controls">                    
+          <div id="status"></div>
+          <div><input type="code" id="code"/></div>
+          <div><button id="send_code">Надіслати код</button></div>       
+          
+          <div class="spinner paused" id="mySpinner"></div>
+          <div><button id="action_btn" type="button">Старт</button></div>
+          <div><button onclick="window.api.openDevTools(); return false;"><span class="material-icons">terminal</span></button></div>                                      
+          <div><span class="material-icons">mail</span> <span id="messages_sent">0</span></div>
+      </div>    
+    </div>   
+
+  <div class="container">    
+    <table class="data-grid" id="data-table">
+      <thead>
+        <tr>
+          <th>Група/Канал</th>
+          <th>Повідомлення</th>
+          <th>Реакція</th>          
+          <th>ШІ Промт</th>          
+          <th>Реплай</th>
+          <th width="150">Дії</th>
+        </tr>
+      </thead>
+      <tbody id="list">
+        <!-- Data will be loaded here -->
+      </tbody>
+    </table>
+    <div id="empty-message" class="empty-state" style="display: none;">
+      <h3>Даних немає</h3>
+      <p>Додайте свої групи використовуючи кнопки зверху</p>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>./src/renderer.js
+let waitingForCode = false;
+const spinner = document.getElementById('mySpinner');
+
+const appStatus = document.getElementById('status');
+const codeInput = document.getElementById('code');
+const sendCodeBtn = document.getElementById('send_code');
+
+let isRunning = false;
+setInterval(
+  async () => {
+    isRunning = await window.api.getIsRunning();  
+    if (isRunning) {
+      spinner.classList.remove('paused');
+      actionBtn.innerHTML = 'Стоп';
+    } else {
+      spinner.classList.add('paused');
+      actionBtn.innerHTML = 'Старт';
+    }   
+  },
+  100
+);
+
+setInterval(
+  async () => {
+    const messagesSent = await window.api.getMessagesSent();  
+    document.getElementById('messages_sent').innerText = messagesSent;
+  },
+  500
+);
+
+async function validateConfig() {  
+  const config = await window.api.getConfig();
+  const required = await window.api.getRequiredKeys();
+  for (let item of required) {
+    if (!config[item] || config[item].length == 0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+const actionBtn = document.getElementById('action_btn');
+actionBtn.onclick = async () => {
+  try {            
+    const isConfigValid = await validateConfig();
+    if (!isConfigValid) {      
+      appStatus.innerHTML = `відсутні <a href="configuration.html">налаштування</a>`;
+      return;
+    }
+
+    const items = await window.api.getItems();
+    if (!(items.length > 0)) {
+      appStatus.textContent = `відсутні групи/канали`;
+      return;
+    }
+
+    const requestRestart = sessionStorage.getItem('request-restart');
+    if (requestRestart) {
+      sessionStorage.removeItem('request-restart');
+      await window.api.requestRestart(
+        'Ваша сесія змінилась, потрібен перезапуск програми!'
+      );
+    }    
+
+    if (!isRunning) {
+      await window.api.start();      
+    } else {
+      await window.api.stop();      
+    }   
+  } catch (err) {
+    appStatus.textContent = err.message;
+  }  
+};
+
+// request auth code
+window.api.onCodeRequest(() => {
+  waitingForCode = true;
+  appStatus.textContent = 'Введіть код:';
+  codeInput.value = '';
+  input.focus();
+});
+
+// send code to main
+sendCodeBtn.onclick = async () => {
+  if (!waitingForCode) return;
+  try {
+    await window.api.submitCode(codeInput.value);
+    appStatus.textContent = 'Код надісланий';
+    waitingForCode = false;
+  } catch (err) {
+    appStatus.textContent = err.message;
+  }
+};
+
+// on log event
+window.api.onLog((data) => {
+  console.log(data);
+});
+
+async function exportData() {
+  try {
+    await window.api.exportData();
+    appStatus.textContent = 'Дані експортовано';
+  } catch (e) {
+    appStatus.textContent = e.message;
+  }
+}
+
+async function importData() {
+  try {
+    const replaced = await window.api.importData();
+    if (replaced) {
+      await load();
+      appStatus.textContent = 'Дані імпортовано';
+    }
+  } catch (e) {
+    appStatus.textContent = e.message;
+  }
+}
+
+function renderTarget(key) {
+  switch (key) {
+    case '^':
+      return "реплай на новий пост";
+    case '$':
+      return "реплай до останнього";
+    case '*':
+      return "реплай до рандомного";
+    default:
+      return "по замовчуванню";
+  }
+}
+
+async function load() {  
+  const items = await window.api.getItems();
+  const tbody = document.getElementById('list');
+  tbody.innerHTML = '';
+  items.forEach(i => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i.groupid}</td>
+      <td>${i.comment}</td> 
+      <td>${i.reaction}</td>
+      <td>${i.prompt}</td>
+      <td>${renderTarget(i.target)}</td>
+      <td>                
+        <div class="btn_container">
+          <div><button onclick="edit('${i.id}')"><span class="material-icons">edit</span></button></div>
+          <div><button onclick="remove('${i.id}')"><span class="material-icons">delete</span></button></div>          
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function add() {  
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const groupid = document.getElementById('groupid').value;
+  const comment = document.getElementById('comment').value;
+  const reaction = document.getElementById('reaction').value;
+  const prompt = document.getElementById('prompt').value;
+  const target = document.getElementById('target').value;
+  await window.api.addItem({
+    id,
+    groupid,
+    comment,
+    reaction,
+    prompt,
+    target
+  });
+  load();
+}
+
+async function edit(id) {  
+  const item = await window.api.getItem(id);
+  document.getElementById('id').value = id;
+  document.getElementById('groupid').value = item.groupid;
+  document.getElementById('comment').value = item.comment;
+  document.getElementById('reaction').value = item.reaction;
+  document.getElementById('prompt').value = item.prompt;
+  document.getElementById('target').value = item.target;
+
+  document.getElementById("add_btn").style.display = "none";
+  document.getElementById("save_btn").style.display = "block";
+}
+
+async function save() {
+  const id = document.getElementById('id').value;
+  const groupid = document.getElementById('groupid').value;
+  const comment = document.getElementById('comment').value;
+  const reaction = document.getElementById('reaction').value;
+  const prompt = document.getElementById('prompt').value;
+  const target = document.getElementById('target').value;
+  await window.api.updateItem({ id, groupid, comment, reaction, prompt, target });
+  load();
+
+  document.getElementById('id').value = '';
+  document.getElementById('groupid').value = '';
+  document.getElementById('comment').value = '';
+  document.getElementById('reaction').value = '';
+  document.getElementById('prompt').value = '';
+  document.getElementById('target').value = '';
+  
+  document.getElementById("add_btn").style.display = "block";
+  document.getElementById("save_btn").style.display = "none";
+}
+
+async function remove(id) {
+  await window.api.deleteItem(id);
+  load();
+}
+
+load();./src/utils.js
+module.exports.sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+module.exports.getRandomNumber = (min, max) => {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+./src/index.js
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { readData, writeData, readConfig, writeConfig, getConfigItem, getReqKeys } = require('./config');
+const { processGroups, getIsRunning, setIsRunning, getMessagesSent } = require('./telegram/poster');
+const fs = require('fs');
+const path = require('node:path');
+
+let TASK_COUNT = 0;
+
+// Handle creating/removing shortcuts on Windows when installing/uninstalling.
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
+
+let mainWindow;
+let codeResolver;
+
+const createWindow = async () => {
+  // Create the browser window.
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  });
+
+  // and load the index.html of the app.
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));  
+};
+
+// This method will be called when Electron has finished
+// initialization and is ready to create browser windows.
+// Some APIs can only be used after this event occurs.
+app.whenReady().then(() => {
+  createWindow();
+
+  // On OS X it's common to re-create a window in the app when the
+  // dock icon is clicked and there are no other windows open.
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
+});
+
+// Quit when all windows are closed, except on macOS. There, it's common
+// for applications and their menu bar to stay active until the user quits
+// explicitly with Cmd + Q.
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// In this file you can include the rest of your app's specific main process
+// code. You can also put them in separate files and import them here.
+
+function externalLogger(data) {
+  mainWindow.webContents.send('log', data);
+}
+
+ipcMain.handle('open-devtools', () => {
+  if (mainWindow) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+});
+
+ipcMain.handle('get-messages-sent', () => {
+  return getMessagesSent();
+});
+
+ipcMain.handle('get-items', () => {
+  return readData();
+});
+
+ipcMain.handle('get-item', (_, id) => {
+  const result = readData().filter(i => i.id == id);
+  return result[0];
+});
+
+ipcMain.handle('add-item', (_, item) => {
+  const data = readData();
+  data.push(item);
+  writeData(data);
+  return data;
+});
+
+ipcMain.handle('update-item', (_, updated) => {
+  let data = readData();
+  data = data.map(i => (i.id === updated.id ? updated : i));
+  writeData(data);
+  return data;
+});
+
+ipcMain.handle('delete-item', (_, id) => {
+  const data = readData().filter(i => i.id !== id);
+  writeData(data);
+  return data;
+});
+
+ipcMain.handle('get-config', () => {
+  return readConfig();
+});
+
+ipcMain.handle('get-required-keys', () => {
+  return getReqKeys();
+});
+
+ipcMain.handle('get-config-item', (_, key) => {
+  return getConfigItem(key);
+});
+
+ipcMain.handle('set-config', (_, config) => {
+  writeConfig(config);
+  return config;
+});
+
+ipcMain.handle('start', (_) => {
+  setIsRunning(true);  
+  if (TASK_COUNT > 0) {    
+    console.log(`already running`);
+    externalLogger(`already running`);    
+    return;
+  }
+  TASK_COUNT++;      
+  const task = processGroups(requestCode, externalLogger);
+  task.then(() => TASK_COUNT--);
+  console.log(`started`);
+  externalLogger(`started`);
+});
+
+ipcMain.handle('stop', (_) => {
+  setIsRunning(false);  
+  console.log(`stopped`);
+  externalLogger(`stopped`);
+});
+
+ipcMain.handle('get-is-running', () => {
+  return getIsRunning();
+});
+
+ipcMain.handle('request-restart', async (_, reason) => {
+  await requestRestart(reason);
+});
+
+/**
+ * Ask renderer for password and wait for it
+ */
+function requestCode() {
+  return new Promise((resolve, reject) => {
+    codeResolver = resolve;
+    mainWindow.webContents.send('request-code');
+  });
+}
+
+// Renderer responds here
+ipcMain.handle('submit-code', (_, code) => {
+  if (!code) {
+    throw new Error('Invalid code');
+  }
+
+  if (codeResolver) {
+    codeResolver(code);
+    codeResolver = null;
+  }
+});
+
+ipcMain.handle('export-data', async () => {
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    title: 'Export data',
+    defaultPath: 'data.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }]
+  });
+
+  if (canceled || !filePath) return;
+
+  const data = readData();
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+});
+
+ipcMain.handle('import-data', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: 'Import data',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+    properties: ['openFile']
+  });
+
+  if (canceled || !filePaths.length) return false;
+
+  const raw = fs.readFileSync(filePaths[0], 'utf8');
+  const parsed = JSON.parse(raw);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('Невірний формат JSON');
+  }
+
+  // опціональна валідація
+  parsed.forEach(i => {
+    if (!i.id) {
+      throw new Error('Некоректний запис у JSON');
+    }
+  });
+
+  writeData(parsed);
+  return true;
+});
+
+async function requestRestart(
+  reason = 'Ваша сесія змінилась, потрібен перезапуск програми!'
+) {
+  await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Системне повідомлення',
+    message: '',
+    detail: `${reason}`,
+    buttons: ['OK'],
+    defaultId: 0
+  });
+  app.quit();
+}./src/configuration.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Налаштування</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Налаштування</h2>
+    <a href="index.html">&#x2302; Головна</a>
+    <a href="configuration.html">⚙ Налаштування</a>  
+    <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg> Допомога</a>  
+
+    <div class="form-grid">
+      <input id="key" placeholder="Параметр" />
+      <input id="value" placeholder="Значення" />
+    </div>
+
+    <div class="button-group">      
+      <button id="add_btn" onclick="addConfig()"><span class="material-icons">add</span></button>
+      <button id="save_btn" style="display: none;" onclick="saveConfig()"><span class="material-icons">save</span></button>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Поточні налаштування</h2>
+    <table class="data-grid">
+      <thead>
+        <tr>
+          <th>Параметр</th>
+          <th>Значення</th>
+          <th width="120">Дії</th>
+        </tr>
+      </thead>
+      <tbody id="config-list"></tbody>
+    </table>
+  </div>
+
+  <script src="configuration.js"></script>
+</body>
+</html>
+./src/telegram/mtproto.js
+const { getConfigItem } = require('../config');
+const MTProto = require('@mtproto/core');
+const { app } = require('electron');
+const path = require('node:path');
+
+const config = {
+  api_id: getConfigItem('TELEGRAM_API_ID'), 
+  api_hash: getConfigItem('TELEGRAM_API_HASH'),
+};
+
+const mtproto = new MTProto({
+  ...config,
+  storageOptions: {
+    path: path.join(
+      app.getPath('userData'),
+      `${getConfigItem('TELEGRAM_PHONE_NUM')}-session.json`
+    )
+  },
+  updates: {
+    enabled: true
+  }
+});
+
+module.exports.authenticate = async (requestCode) => {
+  try {
+    await mtproto.call('users.getUsers', {
+      id: [{ _: 'inputUserSelf' }]
+    });
+  } catch (error) {
+    if (error.error_message === 'AUTH_KEY_UNREGISTERED') {
+      const { phone_code_hash } = await mtproto.call('auth.sendCode', {
+        phone_number: getConfigItem('TELEGRAM_PHONE_NUM'),
+        settings: { _: 'codeSettings' }
+      });
+      const code = await requestCode();
+      await mtproto.call('auth.signIn', {
+        phone_number: getConfigItem('TELEGRAM_PHONE_NUM'),
+        phone_code_hash,
+        phone_code: code
+      });    
+    }
+  }
+}
+
+module.exports.mtproto = mtproto;./src/telegram/poster.js
+const { readData, getConfigItem } = require('../config');
+const { mtproto, authenticate } = require(`./mtproto`);
+const { sleep, getRandomNumber } = require('../utils');
+const { queryLLM, LLMEnabled } = require('../ai');
+
+const lastSeenChannelPost = new Map();
+const channelDebounce = new Map();
+const peerCache = new Map();
+const linkedChatCache = new Map();
+
+let messagesSent = 0;
+
+function getMessagesSent() {
+  return messagesSent;
+}
+
+let IS_RUNNING = false;
+let logger = function (data) {};
+
+function getIsRunning() {
+  return IS_RUNNING;
+}
+
+function setIsRunning(value) {
+  IS_RUNNING = value;
+}
+
+async function mtprotoCall(method, data) {
+  const result = await mtproto.call(method, data);
+  await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 1000);
+  return result;
+}
+
+function extractInviteHash(linkOrHash) {
+  const match = linkOrHash.match(/(?:t\.me\/(?:joinchat\/|\+))([\w-]+)/);
+  return match ? match[1] : null;
+}
+
+function extractUsername(groupidOrLink) {
+  const match = groupidOrLink.match(/(?:t\.me\/)([\w-]+)/);
+  return match ? match[1] : groupidOrLink.replace('@', '');
+}
+
+function isNumericId(str) {
+  return /^\d+$/.test(str);
+}
+
+function getSendAsChannel(channelPeer) {
+  return {
+    _: 'inputPeerChannel',
+    channel_id: channelPeer.id,
+    access_hash: channelPeer.access_hash
+  };
+}
+
+async function getPeerCached(id) {
+  if (peerCache.has(id)) return peerCache.get(id);
+  const res = await ensureMembership(id);
+  peerCache.set(id, res);
+  return res;
+}
+
+async function getSendAsPeer() {
+  const sendAsConfig = getConfigItem('TELEGRAM_SEND_AS_CHANNEL');
+  if (!sendAsConfig) {
+    return null;
+  }
+
+  const sendAsChannels = sendAsConfig
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (sendAsChannels.length === 0) {
+    return null;
+  }
+
+  let sendAsChannel;
+  
+  if (sendAsChannels.length === 1) {
+    sendAsChannel = sendAsChannels[0];
+  } else {
+    sendAsChannel = sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
+  }
+  
+  const sendAsChannelPeer = await getPeerCached(sendAsChannel);
+  if (sendAsChannelPeer.peer._ !== 'channel') {
+    logger('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+    throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
+  }
+  return sendAsChannelPeer.peer;
+}
+
+function getPeerType(peer) {
+  if (!peer || !peer._) return 'unknown';
+
+  if (peer._ === 'chat') {
+    return 'group';
+  }
+
+  if (peer._ === 'channel') {
+    return peer.megagroup ? 'supergroup' : 'channel';
+  }
+
+  return 'unknown';
+}
+
+async function handlePrompt(prompt, input) {
+  let result = {
+    skip: false,
+    answer: ""
+  };  
+
+  const response = await queryLLM(`${prompt} <<<${input}>>>`);
+  console.log(`LLM response: "${response}"`);
+  logger(`LLM response: "${response}"`);  
+
+  let jsonData;
+  try {
+    jsonData = JSON.parse(response);    
+  } catch (e) {        
+  }
+
+  if (jsonData) {    
+    result = {
+      ...result,
+      ...jsonData
+    };
+  } else {
+    result.answer = response;  
+  }  
+
+  if (result.answer) {
+    result.answer = result.answer.replace(/^["']|["']$/g, '');  
+  }
+
+  return result;
+}
+
+async function ensureMembership(groupidOrInvite) {
+  try {
+    const inviteHash = extractInviteHash(groupidOrInvite);
+
+    if (inviteHash) {
+      try {
+        const imported = await mtprotoCall('messages.importChatInvite', { hash: inviteHash });
+        const peer = imported.chats[0];
+        console.log(`✅ Joined via invite: ${groupidOrInvite}`);
+        return { peer };
+      } catch (error) {
+        if (error.error_message.includes('USER_ALREADY_PARTICIPANT')) {
+          const checked = await mtprotoCall('messages.checkChatInvite', { hash: inviteHash });
+          console.log(`ℹ️ Already in: ${groupidOrInvite}`);
+          return { peer: checked.chat };
+        }
+        throw error;
+      }
+    } else {
+      const usernameOrId = extractUsername(groupidOrInvite);
+      let inputChannel;
+      let peer;
+
+      // Check if the usernameOrId is in the format "channel_id:access_hash"
+      const parts = usernameOrId.split(':');
+      if (parts.length === 2 && isNumericId(parts[0]) && isNumericId(parts[1])) {
+        // Numeric ID and access_hash
+        const channelId = parseInt(parts[0], 10);
+        const accessHash = parts[1];
+        inputChannel = {
+          _: 'inputChannel',
+          channel_id: channelId,
+          access_hash: accessHash,
+        };
+        peer = {
+          _: 'inputPeerChannel',
+          channel_id: channelId,
+          access_hash: accessHash,
+        };
+      } else {
+        // Check if it's a numeric ID without access_hash
+        if (isNumericId(usernameOrId)) {
+          throw new Error('Numeric ID must be provided in the format "channel_id:access_hash"');
+        }
+        // Resolve username
+        const resolved = await mtprotoCall('contacts.resolveUsername', {
+          username: usernameOrId,
+        });
+        const chat = resolved.chats[0];
+        inputChannel = {
+          _: 'inputChannel',
+          channel_id: chat.id,
+          access_hash: chat.access_hash,
+        };
+        peer = chat;
+      }
+
+      try {
+        await mtprotoCall('channels.getParticipant', {
+          channel: inputChannel,
+          participant: { _: 'inputPeerSelf' },
+        });
+        console.log(`ℹ️ Already in: ${groupidOrInvite}`);
+        return { peer };
+      } catch (error) {
+        if (error.error_message === 'USER_NOT_PARTICIPANT') {
+          await mtprotoCall('channels.joinChannel', {
+            channel: inputChannel,
+          });
+          console.log(`✅ Joined ${groupidOrInvite}`);
+          return { peer };
+        }
+        throw error;
+      }
+    }
+  } catch (error) {
+    console.error(`❌ Error joining ${groupidOrInvite}:`, error);
+    throw error;
+  }
+}
+
+async function getLinkedChatPeer(channelPeer) {
+  try {
+    if (linkedChatCache.has(channelPeer.id)) {
+      return linkedChatCache.get(channelPeer.id);
+    }
+
+    const fullChannel = await mtprotoCall('channels.getFullChannel', {
+      channel: { _: 'inputChannel', channel_id: channelPeer.id, access_hash: channelPeer.access_hash },
+    });
+
+    const linkedChatId = fullChannel.full_chat?.linked_chat_id;
+    if (!linkedChatId) throw new Error('No linked chat');
+    
+    const linkedChat = fullChannel.chats.find(c => c.id === linkedChatId);
+    if (!linkedChat) throw new Error('Linked chat not found');
+    
+    const result = {
+      peer: linkedChat,
+      access_hash: linkedChat.access_hash
+    };
+
+    linkedChatCache.set(channelPeer.id, result);
+  return result;
+  } catch (error) {
+    console.error('Error getting linked chat:', error);
+    throw error;
+  }
+}
+
+async function getLastChannelPost(channelPeer) {
+  const history = await mtprotoCall('messages.getHistory', {
+    peer: { _: 'inputPeerChannel', channel_id: channelPeer.id, access_hash: channelPeer.access_hash },
+    limit: 1,
+  });
+  if (!history.messages.length) throw new Error('No posts found');
+  return history.messages[0].id;
+}
+
+async function sendMessage(peer, groupid, message, target, prompt) {
+  try {  
+    const params = {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: peer.id,
+        access_hash: peer.access_hash,
+      },
+      message,
+      random_id: BigInt(Math.floor(Math.random() * 1e18)).toString(),
+    };
+
+    // reply logic
+    if (target === '*' || target === '$') {
+      const history = await mtprotoCall('messages.getHistory', {
+        peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
+        limit: 100,
+      });
+      
+      const validMessages = (history.messages || []).filter(
+        (m) => m?.id && m._ === 'message'
+      );
+
+      if (!validMessages.length) {
+        throw new Error('No valid messages to reply to.');
+      }
+
+      let targetMessage;
+      if (target == '$') {
+        targetMessage = validMessages[0];
+      } else if (target == '*')  {
+        targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
+      }         
+
+      params.reply_to_msg_id = targetMessage.id;
+      
+      if (prompt && LLMEnabled()) {
+        // handle prompt        
+        const res = await handlePrompt(prompt, targetMessage.message);
+                                                                                                                                                                        
+        if (res.skip) {
+          console.log(`Skip sending to ${groupid} due to agent directive`);
+          logger(`Skip sending to ${groupid} due to agent directive`);
+          return;
+        }
+
+        if (!(res.answer.length > 0)) {
+          console.log(`Skip sending to ${groupid} due to an empty answer`);
+          logger(`Skip sending to ${groupid} due to an empty answer`);
+          return;
+        }
+
+        params.message = res.answer;
+      }
+    }
+
+    let sendAsPeer = await getSendAsPeer();    
+    if (sendAsPeer) {
+      params.send_as = getSendAsChannel(sendAsPeer);
+    }
+
+    await mtprotoCall('messages.sendMessage', params);
+
+    messagesSent++;
+    console.log(`✅ Message sent to ${groupid}`);
+    logger(`✅ Message sent to ${groupid}`);
+  } catch (error) {
+    console.error(`❌ Error sending to ${groupid}:`, error);
+    logger(`❌ Error sending to ${groupid}: ${JSON.stringify(error)}`);
+  }
+}
+
+async function reactToMessage(peer, groupid, reaction, target) {
+  try {    
+    const history = await mtprotoCall('messages.getHistory', {
+      peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
+      limit: 100,
+    });
+
+    const validMessages = (history.messages || []).filter(
+      (m) => m?.id && m._ === 'message'
+    );
+
+    if (!validMessages.length) {
+      throw new Error('No valid messages to reply to.');
+    }
+
+    let targetMessage;
+    if (target == '$') {
+      targetMessage = validMessages[0];
+    } else if (target == '*')  {
+      targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
+    } else {
+      targetMessage = validMessages[validMessages.length - 1];
+    }
+
+    let params = {
+      peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
+      msg_id: targetMessage.id,
+      reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
+      big: false,
+    };
+
+    let sendAsPeer = await getSendAsPeer();    
+    if (sendAsPeer) {
+      params.send_as = getSendAsChannel(sendAsPeer);
+    }
+
+    await mtprotoCall('messages.sendReaction', params);
+
+    messagesSent++;
+    console.log(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
+    logger(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
+  } catch (error) {
+    console.error(`❌ React error in ${groupid}:`, error);
+    logger(`❌ React error in ${groupid}: ${JSON.stringify(error)}`);
+  }
+}
+
+async function findDiscussionRoot(channelPeer, channelPostId) {
+  const res = await mtprotoCall('messages.getDiscussionMessage', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: channelPeer.id,
+      access_hash: channelPeer.access_hash
+    },
+    msg_id: channelPostId
+  });
+
+  // Find the true thread root
+  const root = res.messages.find(m =>
+    m.replies ||
+    m.reply_to_top_id === m.id
+  );
+
+  if (!root) {
+    throw new Error('Discussion thread root not found yet');
+  }
+
+  return root;
+}
+
+async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
+  try {
+    // 1️⃣ Отримуємо ID останнього поста каналу
+    const channelPostId = await getLastChannelPost(channelPeer);
+    console.log(`📰 Last channel post ID: ${channelPostId}`);
+
+    // 2️⃣ Отримуємо linked discussion chat
+    const linkedChat = await getLinkedChatPeer(channelPeer);
+
+    // 3️⃣ Гарантуємо участь у linked chat
+    if (linkedChat.peer.username) {
+      await getPeerCached(`@${linkedChat.peer.username}`);
+    } else if (linkedChat.peer.id && linkedChat.peer.access_hash) {
+      await getPeerCached(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
+    } else {
+      throw new Error('Invalid linked chat peer');
+    }
+
+    // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
+    const discussionRoot = await findDiscussionRoot(channelPeer, channelPostId);
+
+    if (!discussionRoot.id) {
+      throw new Error('Discussion root not found for last channel post');
+    }
+
+    console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
+
+    // 5️⃣ Обробка target
+    let targetMessage;    
+    if (target === '$' || target === '*') { 
+      // Беремо історію коментарів
+      const history = await mtprotoCall('messages.getHistory', {
+        peer: {
+          _: 'inputPeerChannel',
+          channel_id: linkedChat.peer.id,
+          access_hash: linkedChat.peer.access_hash,
+        },
+        limit: 100,
+      });
+
+      // 🔒 ТІЛЬКИ коментарі цього поста (перший рівень)
+      const postComments = (history.messages || []).filter(m =>
+        m._ === 'message' &&
+        m.id &&
+        m.reply_to &&
+        m.reply_to.reply_to_msg_id === discussionRoot.id
+      );
+      
+      if (!postComments.length) {
+        throw new Error('No comments found for post');
+      }
+
+      if (target === '$') {
+        targetMessage = postComments[0];
+        console.log(`💬 Last comment ID: ${targetMessage.id}`);
+      } else if (target === '*') {
+        targetMessage = postComments[getRandomNumber(0, postComments.length - 1)];
+        console.log(`🎲 Random comment ID: ${targetMessage.id}`);
+      }  
+    } else {
+      targetMessage = discussionRoot;
+      console.log(`💬 Root ID: ${targetMessage.id}`);
+    }        
+
+    console.log(`🎯 Replying to message ID: ${targetMessage.id}`);
+
+    let params = {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: linkedChat.peer.id,
+        access_hash: linkedChat.peer.access_hash,
+      },
+      message: comment,
+      reply_to_msg_id: targetMessage.id,
+      random_id: (
+        BigInt(Date.now()) * 1000n +
+        BigInt(Math.floor(Math.random() * 1000))
+      ).toString(),
+    };
+
+    if (prompt && LLMEnabled()) {      
+      // handle prompt        
+      const res = await handlePrompt(prompt, targetMessage.message);
+
+      if (res.skip) {
+        console.log(`Skip sending to ${channelGroupId} due to agent directive`);
+        logger(`Skip sending to ${channelGroupId} due to agent directive`);
+        return;
+      }
+
+      if (!(res.answer.length > 0)) {
+        console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
+        logger(`Skip sending to ${channelGroupId} due to an empty answer`);
+        return;
+      }
+
+      params.message = res.answer;
+    }
+
+    let sendAsPeer = await getSendAsPeer();    
+    if (sendAsPeer) {
+      params.send_as = getSendAsChannel(sendAsPeer);
+    }
+
+    // 7️⃣ Відправляємо коментар
+    await mtprotoCall('messages.sendMessage', params);
+
+    messagesSent++;
+    console.log(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
+    logger(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
+  } catch (error) {
+    console.error('❌ sendCommentToPost error:', error);
+    logger(`❌ sendCommentToPost error: ${JSON.stringify(error)}`);
+  }
+}
+
+async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction) {
+  try {
+    /** 1️⃣ Отримуємо linked chat */
+    const linkedChat = await getLinkedChatPeer(channelPeer);
+
+    /** 2️⃣ Гарантуємо участь */
+    if (linkedChat.peer.username) {
+      await getPeerCached(`@${linkedChat.peer.username}`);
+    } else if (linkedChat.peer.id && linkedChat.peer.access_hash) {
+      await getPeerCached(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
+    }
+
+    /** 3️⃣ Отримуємо ОСТАННІЙ ПОСТ каналу */
+    const channelHistory = await mtprotoCall('messages.getHistory', {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: channelPeer.id,
+        access_hash: channelPeer.access_hash
+      },
+      limit: 1
+    });
+
+    const lastPost = channelHistory.messages?.find(m => m._ === 'message' && m.id);
+    if (!lastPost) throw new Error('No channel posts found');
+    console.log(`📰 Last channel post ID: ${lastPost.id}`);
+
+    // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
+    const discussionRoot = await findDiscussionRoot(channelPeer, lastPost.id);
+
+    if (!discussionRoot.id) {
+      throw new Error('Discussion root not found for last channel post');
+    }
+
+    /** 5️⃣ Отримуємо коментарі ТІЛЬКИ до цього поста */
+    const commentsHistory = await mtprotoCall('messages.getHistory', {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: linkedChat.peer.id,
+        access_hash: linkedChat.peer.access_hash
+      },
+      limit: 100
+    });
+
+    const comments = (commentsHistory.messages || []).filter(m =>
+      m._ === 'message' &&
+      m.id &&
+      m.reply_to?.reply_to_msg_id === discussionRoot.id
+    );
+
+    /** 6️⃣ Вибір target */
+    let targetMessageId;
+    if (target === '$' || target === '*') {
+      if (!comments.length) {
+        throw new Error('No comments for post');
+      }
+      if (target === '$') {
+        targetMessageId = comments[0].id;
+        console.log(`💬 Last comment ID: ${targetMessageId}`);
+      } else if (target === '*') {
+        targetMessageId = comments[getRandomNumber(0, comments.length - 1)].id;
+        console.log(`💬 Random comment ID: ${targetMessageId}`);
+      } 
+    } else {
+      targetMessageId = discussionRoot.id;
+      console.log(`💬 Root ID: ${targetMessageId}`);
+    }
+
+    console.log(`🎯 Reacting to comment ID: ${targetMessageId}`);
+
+    let params = {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: linkedChat.peer.id,
+        access_hash: linkedChat.peer.access_hash
+      },
+      msg_id: targetMessageId,
+      reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
+      big: false
+    };
+
+    let sendAsPeer = await getSendAsPeer();    
+    if (sendAsPeer) {
+      params.send_as = getSendAsChannel(sendAsPeer);
+    }
+
+    /** 7️⃣ Відправка реакції */
+    await mtprotoCall('messages.sendReaction', params);
+
+    messagesSent++;
+    console.log(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
+    logger(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
+  } catch (error) {
+    console.error('❌ Comment react error:', error);
+    logger(`❌ Comment react error: ${JSON.stringify(error)}`);
+  }
+}
+
+async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction) {
+  let sendAsPeer = await getSendAsPeer();  
+  await mtprotoCall('messages.sendReaction', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: channelPeer.id,
+      access_hash: channelPeer.access_hash
+    },
+    msg_id: postId,
+    reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
+    ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
+  });
+
+  messagesSent++;
+  console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
+  logger(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
+}
+
+async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, prompt) {
+  const linkedChat = await getLinkedChatPeer(channelPeer);
+
+  if (linkedChat.peer.username) {
+    await getPeerCached(`@${linkedChat.peer.username}`);
+  } else {
+    await getPeerCached(`${linkedChat.peer.id}:${linkedChat.peer.access_hash}`);
+  }
+
+  // Знаходимо discussion root для ОСТАННЬОГО поста
+  const discussionRoot = await findDiscussionRoot(channelPeer, postId);
+
+  console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
+
+  let text = comment;
+  if (prompt && LLMEnabled()) {
+    // handle prompt        
+    const res = await handlePrompt(prompt, discussionRoot.message);
+
+    if (res.skip) {
+      console.log(`Skip sending to ${channelGroupId} due to agent directive`);
+      logger(`Skip sending to ${channelGroupId} due to agent directive`);
+      return;
+    } 
+
+    if (!(res.answer.length > 0)) {
+      console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
+      logger(`Skip sending to ${channelGroupId} due to an empty answer`);
+      return;
+    }
+
+    text = res.answer;
+  }
+
+  let sendAsPeer = await getSendAsPeer();  
+
+  await mtprotoCall('messages.sendMessage', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: linkedChat.peer.id,
+      access_hash: linkedChat.peer.access_hash
+    },
+    message: text,
+    reply_to_msg_id: discussionRoot.id,
+    random_id: BigInt(Date.now()).toString(),
+    ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
+  });
+
+  messagesSent++;
+  console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
+  logger(`💬 Commented on new post ${postId} in ${channelGroupId}`);
+}
+
+async function handleDebouncedPost(
+  channelPeer,
+  groupConfig,
+  postId  
+) {
+  const { groupid, comment, reaction, prompt } = groupConfig;
+  
+  const key = `${channelPeer.id}:${groupConfig.id}`;
+  const lastSeen = lastSeenChannelPost.get(key);
+
+  if (lastSeen && postId <= lastSeen) return;
+
+  lastSeenChannelPost.set(key, postId);
+
+  console.log(`⏳ Debounced post ${postId} in ${groupid}`);
+  logger(`⏳ Debounced post ${postId} in ${groupid}`);
+
+  if (comment || prompt) {
+    await sendCommentToSpecificPost(
+      channelPeer,
+      groupid,
+      postId,
+      comment,
+      prompt      
+    );
+  }
+
+  if (reaction) {
+    await reactToSpecificPost(
+      channelPeer,
+      groupid,
+      postId,
+      reaction      
+    );
+  }
+}
+
+function scheduleDebouncedPost(
+  channelPeer,
+  groupConfig,
+  postId  
+) {
+  const key = `${channelPeer.id}:${groupConfig.id}`;
+
+  const existing = channelDebounce.get(key);
+  if (existing?.timer) {
+    clearTimeout(existing.timer);
+  }
+  
+  const delay = parseInt((getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || 10), 10) * 1000;
+  const timer = setTimeout(async () => {
+    try {
+      await handleDebouncedPost(
+        channelPeer,
+        groupConfig,
+        postId        
+      );
+    } catch (err) {
+      console.error('❌ Debounced post handler error:', err);
+    } finally {
+      channelDebounce.delete(key);
+    }
+  }, delay);
+
+  channelDebounce.set(key, { postId, timer });
+
+  console.log(`post scheduled`);
+  logger(`post scheduled`);
+}
+
+async function preloadDialogs() {
+  await mtprotoCall('messages.getDialogs', {
+    offset_date: 0,
+    offset_id: 0,
+    offset_peer: { _: 'inputPeerEmpty' },
+    limit: 200,
+    hash: 0
+  });
+  console.log('📂 Dialogs preloaded');
+}
+
+async function warmUpPeerCache() {
+  const data = readData();  
+  for (const group of data) {    
+    await getPeerCached(group.groupid);
+  }  
+}
+
+async function processGroups(requestCode, externalLogger) {
+  try {        
+    logger = externalLogger;
+    await authenticate(requestCode);  
+    await preloadDialogs();
+    await warmUpPeerCache();
+
+    mtproto.updates.on('updates', async ({ updates }) => {
+      if (!getIsRunning()) return;
+    
+      for (const upd of updates) {
+        if (upd._ !== 'updateNewChannelMessage') continue;
+    
+        const msg = upd.message;
+        if (!msg || msg._ !== 'message') continue;
+        if (!msg.message && !msg.media) continue;
+    
+        const channelId = msg.peer_id?.channel_id;
+        if (!channelId) continue;
+    
+        const data = readData();
+    
+        for (const group of data) {
+          if (group.target !== '^') continue;
+    
+          const { groupid } = group;
+          const { peer } = await getPeerCached(groupid);
+    
+          if (peer._ !== 'channel') continue;
+          if (peer.id !== channelId) continue;          
+    
+          scheduleDebouncedPost(peer, group, msg.id);
+        }
+      }
+    });
+    
+    while (getIsRunning()) {
+      const data = readData();      
+      for (const group of data) {        
+        const { groupid, comment, reaction, prompt, target } = group;
+
+        if (target == '^') continue;        
+
+        const { peer } = await getPeerCached(groupid);
+        const type = getPeerType(peer);
+
+        if (type == 'group' || type == 'supergroup') {
+          if (comment || prompt) await sendMessage(peer, groupid, comment, target, prompt);            
+          if (reaction) await reactToMessage(peer, groupid, reaction, target);                     
+        } else if (type == 'channel') {          
+          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, prompt);                
+          if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction);                           
+        }      
+
+      }
+      await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 1000);
+    }  
+  } catch (err) {
+    console.log(err);
+    return;
+  } finally {
+    setIsRunning(false);
+    lastSeenChannelPost.clear();
+    channelDebounce.clear();
+    console.log(`exiting`);
+    externalLogger(`exiting`);
+  }    
+}
+
+module.exports.processGroups = processGroups;
+module.exports.getMessagesSent = getMessagesSent;
+module.exports.getIsRunning = getIsRunning;
+module.exports.setIsRunning = setIsRunning;./src/help.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Допомога</title>
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Допомога</h2>
+    <a href="index.html">&#x2302; Головна</a>
+    <a href="configuration.html">⚙ Налаштування</a>  
+    <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg> Допомога</a> 
+
+    <section class="help-section">
+        <h2>Для роботи із програмою, вам потрібно зробити наступні <a href="configuration.html">налаштування</a>:</h2>
+        <ul style="list-style-type: none;">
+            <li><b>TELEGRAM_PHONE_NUM</b> - телефон вашого акаунту в Телеграм</li>
+            <li><b>TELEGRAM_API_ID</b> - айді вашого застосунку в Телеграм</li>
+            <li><b>TELEGRAM_API_HASH</b> - хеш вашого застосунку в Телеграм</li>
+            <li><b>TELEGRAM_ITERATION_DELAY</b> - пауза в секундах між циклами постінгу (потрібно для уникнення блокування)</li>
+            <li><b>TELEGRAM_API_DELAY</b> - пауза в секундах між викликами API (потрібно для уникнення блокування)</li>
+        </ul>                
+        <div style="width:1040px; height:377px; margin: auto;"> 
+          <img style="width:90%; height:90%;" src="images/settings.png" alt="Settings">   
+        </div>
+        <br/>      
+        <h2>Як отримати Telegram API ID та API Hash</h2>
+        <div>
+          <ol class="help-steps">
+            <li>
+            <strong>Перейдіть на сайт Telegram для розробників</strong><br>
+            <a href="https://my.telegram.org" target="_blank" rel="noopener">
+                https://my.telegram.org
+            </a>
+            </li>
+
+            <li>
+            <strong>Увійдіть за номером телефону</strong>
+            <ul>
+                <li>Введіть номер у міжнародному форматі (наприклад, <code>+380...</code>)</li>
+                <li>Отримайте код підтвердження у Telegram</li>
+                <li>Підтвердіть вхід</li>
+            </ul>
+            </li>
+
+            <li>
+            <strong>Виберіть пункт <code>API development tools</code></strong>
+            </li>
+
+            <li>
+            <strong>Заповніть форму створення застосунку</strong>
+            <ul>
+                <li><strong>App title</strong> — будь-яка назва (наприклад, <em>My App</em>)</li>
+                <li><strong>Short name</strong> — коротка назва латиницею</li>
+                <li><strong>Platform</strong> — <em>Desktop</em> або <em>Other</em></li>
+                <li><strong>URL</strong> — можна залишити порожнім</li>
+            </ul>
+            </li>
+
+            <li>
+            <strong>Після збереження Ви отримаєте:</strong>
+            <ul>
+                <li><code>api_id</code> — числовий ідентифікатор</li>
+                <li><code>api_hash</code> — секретний ключ</li>
+            </ul>
+            </li>
+          </ol>       
+        </div>   
+        <br/>     
+        <h2>Для роботи програми, двофакторна автентифікація (2FA) у вашому акаунті має бути вимкнена:</h2>        
+        <div style="width:779px; height:663px; margin: auto;"> 
+          <img style="width:90%; height:90%;" src="images/2factor.png" alt="2factor">
+        </div>        
+
+        <h2>Для активації штучного інтелекту для реплаїв, виконайте наступні дії:</h2>        
+        <div>
+          <h4>1️⃣ Реєстрація в GroqCloud</h4>
+          <ol>
+            <li>Перейдіть на сайт <strong>GroqCloud</strong>:
+              <a href="https://console.groq.com" target="_blank">https://console.groq.com</a>
+            </li>
+            <li>Натисніть <strong>Sign Up</strong> або <strong>Log In</strong></li>
+            <li>Увійдіть за допомогою Google або email</li>
+          </ol>
+          <p>Після входу Ви потрапите в <strong>Groq Console</strong>.</p>
+        </div>
+
+        <div>
+          <h4>2️⃣ Отримання <code>GROQ_API_KEY</code></h4>
+          <ol>
+            <li>Відкрийте розділ <strong>API Keys</strong></li>
+            <li>Натисніть <strong>Create API Key</strong></li>
+            <li>Скопіюйте згенерований ключ, наприклад:
+              <pre>gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx</pre>
+            </li>
+          </ol>          
+        </div>
+
+        <div>
+          <h4>3️⃣ Збереження <code>GROQ_API_KEY</code> в <a href="configuration.html">налаштуваннях</a>:</h4>
+          <ol>
+            <li>Створіть параметр конфігурації із назвою "GROQ_API_KEY" та збережіть у нього згенерований ключ</li>            
+          </ol>  
+          <div style="width:1013px; height:70px; margin: auto;"> 
+          <img style="width:90%; height:90%;" src="images/groq_api_key.png" alt="Settings">   
+        </div>        
+        </div>
+    </section>     
+  </div>
+  
+</body>
+</html>
+./src/preload.js
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('api', {
+  // data
+  getItems: () => ipcRenderer.invoke('get-items'),
+  getItem: (id) => ipcRenderer.invoke('get-item', id),
+  addItem: (item) => ipcRenderer.invoke('add-item', item),
+  updateItem: (item) => ipcRenderer.invoke('update-item', item),
+  deleteItem: (id) => ipcRenderer.invoke('delete-item', id),
+   // config
+  getConfig: () => ipcRenderer.invoke('get-config'),  
+  getRequiredKeys: () => ipcRenderer.invoke('get-required-keys'),  
+  getConfigItem: (key) => ipcRenderer.invoke('get-config-item', key),
+  setConfig: (config) => ipcRenderer.invoke('set-config', config),
+  // auth
+  onCodeRequest: (callback) => ipcRenderer.on('request-code', callback),
+  submitCode: (code) => ipcRenderer.invoke('submit-code', code),
+  // control
+  start: () => ipcRenderer.invoke('start'),
+  stop: () => ipcRenderer.invoke('stop'),   
+  exportData: () => ipcRenderer.invoke('export-data'),
+  importData: () => ipcRenderer.invoke('import-data'),
+  getIsRunning: () => ipcRenderer.invoke('get-is-running'),
+  requestRestart: (reason) => ipcRenderer.invoke('request-restart', reason),
+  // info
+  onLog: (callback) => ipcRenderer.on('log', (_, data) => callback(data)),
+  getMessagesSent: () => ipcRenderer.invoke('get-messages-sent'),
+  openDevTools: () => ipcRenderer.invoke('open-devtools')
+});
+./src/configuration.js
+let config = {};
+let required = [];
+
+async function loadConfig() {
+  config = await window.api.getConfig();
+  required = await window.api.getRequiredKeys();
+
+  for (let item of required) {
+    if (!config[item]) {
+      config[item] = '';
+    }
+  }
+
+  render();
+}
+
+function render() {
+  const tbody = document.getElementById('config-list');
+  tbody.innerHTML = '';
+  
+  Object.entries(config).forEach(([key, value]) => {
+    let tdStyle = "";
+    if (required.includes(key) && (!value)) {
+      tdStyle = `style="border: 2px solid red;"`;
+    }
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${key}</td>
+      <td ${tdStyle}>${value}</td>
+      <td>        
+        <div class="btn_container">
+          <div><button onclick="editConfig('${key}')"><span class="material-icons">edit</span></button></div>
+          <div><button onclick="removeConfig('${key}')"><span class="material-icons">delete</span></button></div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function addConfig() {
+  const key = document.getElementById('key').value;
+  const value = document.getElementById('value').value;
+
+  if (!key) return;
+
+  config[key] = value;
+  await window.api.setConfig(config);
+
+  document.getElementById('key').value = '';
+  document.getElementById('value').value = '';
+
+  render();  
+}
+
+async function editConfig(key) {
+  const value = await window.api.getConfigItem(key);
+  document.getElementById('key').value = key;
+  document.getElementById('value').value = value;    
+  document.getElementById("add_btn").style.display = "none";
+  document.getElementById("save_btn").style.display = "block";
+  document.getElementById("key").readOnly = true;
+}
+
+async function saveConfig() {
+  const key = document.getElementById('key').value;  
+  if (config[key] != document.getElementById('value').value) {    
+    config[key] = document.getElementById('value').value;
+    await window.api.setConfig(config);
+    render();
+    
+    document.getElementById('key').value = '';
+    document.getElementById('value').value = '';  
+    document.getElementById("add_btn").style.display = "block";
+    document.getElementById("save_btn").style.display = "none";
+    document.getElementById("key").readOnly = false;  
+
+    if (required.includes(key)) {       
+      sessionStorage.setItem('request-restart', '1');      
+    }
+  }  
+}
+
+async function removeConfig(key) {
+  if (required.includes(key)) {
+    console.log('Required configuration cannot be removed.');
+    return;
+  }
+  delete config[key];
+  await window.api.setConfig(config);
+  render();
+}
+
+loadConfig();
+./src/main.css
+:root {
+  --primary: #3498db;
+  --primary-dark: #2980b9;
+  --success: #2ecc71;
+  --danger: #e74c3c;
+  --warning: #f39c12;
+  --light: #f8f9fa;
+  --dark: #343a40;
+  --gray: #6c757d;
+  --border: #dee2e6;
+  --shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  --radius: 4px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background-color: #f5f7fa;
+  color: #333;
+  line-height: 1.6;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.container {
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 25px;
+  margin-bottom: 25px;
+}
+
+h2 {
+  color: var(--dark);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 210px;
+}
+
+label {
+  font-weight: 600;
+  margin-bottom: 5px;
+  color: var(--dark);
+  font-size: 0.9rem;
+}
+
+input, textarea, select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.25);
+}
+
+button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#add_btn {
+  background-color: var(--primary);
+  color: white;
+}
+
+#add_btn:hover:not(:disabled) {
+  background-color: var(--primary-dark);
+}
+
+#save_btn {
+  background-color: var(--success);
+  color: white;
+}
+
+#save_btn:hover {
+  background-color: #27ae60;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-edit {
+  background-color: var(--warning);
+  color: white;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.btn-edit:hover {
+  background-color: #e67e22;
+}
+
+.btn-delete {
+  background-color: var(--danger);
+  color: white;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.btn-delete:hover {
+  background-color: #c0392b;
+}
+
+.data-grid {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  box-shadow: var(--shadow);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.data-grid th {
+  background-color: var(--primary);
+  color: white;
+  text-align: center;
+  padding: 14px 16px;
+  font-weight: 600;
+}
+
+.data-grid td {
+  padding: 12px 16px;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+}
+
+.data-grid tr:nth-child(even) {
+  background-color: var(--light);
+}
+
+.data-grid tr:hover {
+  background-color: #e9f7fe;
+}
+
+.data-grid tr:last-child td {
+  border-bottom: none;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: var(--gray);
+}
+
+.empty-state p {
+  margin-top: 10px;
+}
+
+.btn_container {
+  display: flex;
+  padding: 5px;
+}
+
+.btn_container div {
+  margin: 5px;
+}
+
+.controls {
+  display: flex;  
+  justify-content: center; 
+}
+
+.controls div {
+  margin: 5px;
+}
+
+.button-group {
+  display: flex;  
+  justify-content: center; 
+}
+
+.button-group div {
+  padding: 5px;
+}
+
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-top: 4px solid #3498db; /* Blue color for the moving part */
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  animation: spin 1s linear infinite; /* Default state is running */
+}
+
+/* Keyframes for the rotation animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Class to pause the animation */
+.spinner.paused {
+  animation-play-state: paused;
+}
+
+/* Alternative class to hide the spinner entirely when stopped */
+.spinner.hidden {
+    display: none;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .data-grid {
+    font-size: 0.9rem;
+  }
+  
+  .data-grid th,
+  .data-grid td {
+    padding: 10px 12px;
+  }
+}./src/config.js
+const { app } = require('electron');
+const path = require('node:path');
+const fs = require('fs');
+
+const requiredKeys = [
+  'TELEGRAM_API_ID',
+  'TELEGRAM_API_HASH',
+  'TELEGRAM_PHONE_NUM',
+  'TELEGRAM_ITERATION_DELAY',
+  'TELEGRAM_API_DELAY'
+];
+
+const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
+const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
+
+function readData() {
+  if (!fs.existsSync(DATA_FILE)) return [];
+  return JSON.parse(fs.readFileSync(DATA_FILE));
+}
+
+function writeData(data) {
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+function getReqKeys() {   
+  return requiredKeys;
+};
+
+function readConfig() {
+  if (!fs.existsSync(CONFIG_FILE)) return {};
+  return JSON.parse(fs.readFileSync(CONFIG_FILE));  
+}
+
+function writeConfig(config) {
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));  
+}
+
+function getConfigItem(key) { 
+  const config = readConfig();
+  return config[key];
+};
+
+module.exports.readData = readData;
+module.exports.writeData = writeData;
+module.exports.getReqKeys = getReqKeys;
+module.exports.readConfig = readConfig;
+module.exports.writeConfig = writeConfig;
+module.exports.getConfigItem = getConfigItem;
+./src/ai.js
+const { getConfigItem } = require('./config');
+
+const LLMEnabled = () => {
+    const GROQ_API_KEY = getConfigItem('GROQ_API_KEY');
+    return typeof GROQ_API_KEY == 'string' && GROQ_API_KEY.length > 0;
+}
+
+const queryLLM = async (prompt, retries = 2) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    let messages = [
+      {
+        role: 'user',
+        content: prompt,
+      }
+    ];
+    if (getConfigItem('GROQ_SYSTEM_MESSAGE')) {
+        messages = [
+          {
+            role: 'system',
+            content: getConfigItem('GROQ_SYSTEM_MESSAGE'),
+          },
+          ...messages,
+        ];
+    }
+
+    const response = await fetch(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getConfigItem('GROQ_API_KEY')}`,
+        },
+        body: JSON.stringify({
+          model: getConfigItem('GROQ_API_MODEL') || 'llama-3.3-70b-versatile',
+          messages,
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Groq API ${response.status}: ${text}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content ?? '';
+  } catch (err) {
+    if (retries > 0) {
+      console.warn(`⚠️ LLM retry (${3 - retries}/3):`, err.code || err.name);
+      await new Promise(r => setTimeout(r, 1000));
+      return queryLLM(prompt, retries - 1);
+    }
+
+    console.error('❌ LLM failed permanently:', err);
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
+
+module.exports.queryLLM = queryLLM;
+module.exports.LLMEnabled = LLMEnabled;

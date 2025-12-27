@@ -1,0 +1,1 @@
+find . \( -path "./node_modules" -o -path "./src/images" -o -path "./out" -o -path "./.git" -o -path "./.vscode" -o name ".gitignore" -o name "package-lock.json" -o name "forge.config.js" \) -prune   -o -type f ! -name "out.txt" -print | while IFS= read -r file; do   echo "$file" >> out.txt;   cat "$file" >> out.txt; done
