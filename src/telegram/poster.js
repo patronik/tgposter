@@ -3,18 +3,15 @@ const { mtproto, authenticate } = require(`./mtproto`);
 const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
+/* -- STATE -- */
 const lastSeenChannelPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
 const linkedChatCache = new Map();
 
-let messagesSent = 0;
-
-function getMessagesSent() {
-  return messagesSent;
-}
-
 let IS_RUNNING = false;
+
+let messagesSent = 0;
 
 function getIsRunning() {
   return IS_RUNNING;
@@ -23,6 +20,12 @@ function getIsRunning() {
 function setIsRunning(value) {
   IS_RUNNING = value;
 }
+
+function getMessagesSent() {
+  return messagesSent;
+}
+
+/* -- STATE END -- */
 
 async function mtprotoCall(method, data) {
   const result = await mtproto.call(method, data);
@@ -254,6 +257,48 @@ async function getLastChannelPost(channelPeer) {
   return history.messages[0].id;
 }
 
+async function findDiscussionRoot(channelPeer, channelPostId) {
+  const res = await mtprotoCall('messages.getDiscussionMessage', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: channelPeer.id,
+      access_hash: channelPeer.access_hash
+    },
+    msg_id: channelPostId
+  });
+
+  // Find the true thread root
+  const root = res.messages.find(m =>
+    m.replies ||
+    m.reply_to_top_id === m.id
+  );
+
+  if (!root) {
+    throw new Error('Discussion thread root not found yet');
+  }
+
+  return root;
+}
+
+async function preloadDialogs() {
+  await mtprotoCall('messages.getDialogs', {
+    offset_date: 0,
+    offset_id: 0,
+    offset_peer: { _: 'inputPeerEmpty' },
+    limit: 200,
+    hash: 0
+  });
+  console.log('📂 Dialogs preloaded');
+}
+
+async function warmUpPeerCache() {
+  const data = readData();  
+  for (const group of data) {    
+    await getPeerCached(group.groupid);
+  }  
+}
+
+/* -- GROUP POSTING -- */
 async function sendMessage(peer, groupid, message, target, prompt) {
   try {  
     const params = {
@@ -367,28 +412,9 @@ async function reactToMessage(peer, groupid, reaction, target) {
   }
 }
 
-async function findDiscussionRoot(channelPeer, channelPostId) {
-  const res = await mtprotoCall('messages.getDiscussionMessage', {
-    peer: {
-      _: 'inputPeerChannel',
-      channel_id: channelPeer.id,
-      access_hash: channelPeer.access_hash
-    },
-    msg_id: channelPostId
-  });
+/* -- END GROUP POSTING -- */
 
-  // Find the true thread root
-  const root = res.messages.find(m =>
-    m.replies ||
-    m.reply_to_top_id === m.id
-  );
-
-  if (!root) {
-    throw new Error('Discussion thread root not found yet');
-  }
-
-  return root;
-}
+/* -- CHANNEL CHAT POSTING -- */
 
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
@@ -664,6 +690,8 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
 }
 
+/* -- CHANNEL CHAT POSTING -- */
+
 async function handleDebouncedPost(
   channelPeer,
   groupConfig,
@@ -730,24 +758,6 @@ function scheduleDebouncedPost(
   channelDebounce.set(key, { postId, timer });
 
   console.log(`post scheduled`);
-}
-
-async function preloadDialogs() {
-  await mtprotoCall('messages.getDialogs', {
-    offset_date: 0,
-    offset_id: 0,
-    offset_peer: { _: 'inputPeerEmpty' },
-    limit: 200,
-    hash: 0
-  });
-  console.log('📂 Dialogs preloaded');
-}
-
-async function warmUpPeerCache() {
-  const data = readData();  
-  for (const group of data) {    
-    await getPeerCached(group.groupid);
-  }  
 }
 
 async function processGroups(requestCode) {
