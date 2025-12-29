@@ -292,8 +292,8 @@ async function preloadDialogs() {
 }
 
 async function prepareGroups() {
-  const data = readData();  
   const result = [];
+  const data = readData();    
   for (const group of data) {   
     try {
       await getPeerCached(group.groupid);
@@ -801,9 +801,6 @@ async function processGroups(requestCode) {
     });
     
     while (getIsRunning()) {
-      const data = readData()
-      .filter(({groupid}) => !(groupsToSkip.has(groupid)));      
-
       for (const group of data) {        
         const { groupid, comment, reaction, prompt, target } = group;
 
