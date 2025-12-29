@@ -27,10 +27,27 @@ function getMessagesSent() {
 
 /* -- STATE END -- */
 
-async function mtprotoCall(method, data) {
-  const result = await mtproto.call(method, data);
-  await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 1000);
-  return result;
+async function mtprotoCall(method, data, retry = 0) {
+  try {
+      const result = await mtproto.call(method, data);
+      await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 1000);
+      return result;
+    } catch (err) { 
+    console.error(`❌ MTProto call error: `, err);
+    const errorMessage = err.error_message || err.message;
+    if (errorMessage && errorMessage.startsWith('FLOOD_WAIT')) { 
+      const wait = Number(errorMessage.split('_').pop()); 
+      await sleep(wait * 1000); 
+      if (retry < 3) {
+        console.log(`Retry ${retry}`);
+        return await mtprotoCall(method, data, retry + 1);
+      } else {
+        throw err;
+      }
+    } else {
+      throw err;
+    }
+  }
 }
 
 function extractInviteHash(linkOrHash) {
@@ -771,6 +788,7 @@ async function processGroups(requestCode) {
   try {        
     await authenticate(requestCode);  
     await preloadDialogs();
+
     const data = await prepareGroups();
 
     mtproto.updates.on('updates', async ({ updates }) => {
