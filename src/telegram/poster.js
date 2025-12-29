@@ -779,9 +779,7 @@ function scheduleDebouncedPost(
     }
   }, delay);
 
-  channelDebounce.set(key, { postId, timer });
-
-  console.log(`post scheduled`);
+  channelDebounce.set(key, { postId, timer });  
 }
 
 async function processGroups(requestCode) {
@@ -819,7 +817,8 @@ async function processGroups(requestCode) {
     });
 
     // workarond to start getting updates
-    setInterval(async () => { await mtprotoCall('updates.getState'); }, 15000);
+    setInterval(async () => { await mtprotoCall('updates.getState'); }, 30 * 1000);
+    setInterval(async () => { await preloadDialogs(); }, 60 * 15 * 1000);
     
     while (getIsRunning()) {
       for (const group of data) {        
