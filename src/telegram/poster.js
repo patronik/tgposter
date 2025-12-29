@@ -291,11 +291,18 @@ async function preloadDialogs() {
   console.log('📂 Dialogs preloaded');
 }
 
-async function warmUpPeerCache() {
+async function prepareGroups() {
   const data = readData();  
-  for (const group of data) {    
-    await getPeerCached(group.groupid);
-  }  
+  const result = [];
+  for (const group of data) {   
+    try {
+      await getPeerCached(group.groupid);
+      result.push(group);
+    } catch (err) {
+      console.log(`Failed joining to "${group.groupid}"`);
+    }    
+  }
+  return result;  
 }
 
 /* -- GROUP POSTING -- */
@@ -764,7 +771,7 @@ async function processGroups(requestCode) {
   try {        
     await authenticate(requestCode);  
     await preloadDialogs();
-    await warmUpPeerCache();
+    const data = await prepareGroups();
 
     mtproto.updates.on('updates', async ({ updates }) => {
       if (!getIsRunning()) return;
@@ -778,8 +785,6 @@ async function processGroups(requestCode) {
     
         const channelId = msg.peer_id?.channel_id;
         if (!channelId) continue;
-    
-        const data = readData();
     
         for (const group of data) {
           if (group.target !== '^') continue;
@@ -796,7 +801,9 @@ async function processGroups(requestCode) {
     });
     
     while (getIsRunning()) {
-      const data = readData();      
+      const data = readData()
+      .filter(({groupid}) => !(groupsToSkip.has(groupid)));      
+
       for (const group of data) {        
         const { groupid, comment, reaction, prompt, target } = group;
 
