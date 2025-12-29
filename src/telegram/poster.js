@@ -39,7 +39,7 @@ async function mtprotoCall(method, data, retry = 0) {
       const wait = Number(errorMessage.split('_').pop()); 
       await sleep(wait * 1000); 
       if (retry < 2) {
-        console.log(`Retry ${retry}`);
+        console.log(`Retry ${(retry + 1)}`);
         return await mtprotoCall(method, data, retry + 1);
       } else {
         throw err;
