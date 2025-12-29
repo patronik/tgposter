@@ -15,10 +15,7 @@ const mtproto = new MTProto({
       app.getPath('userData'),
       `${getConfigItem('TELEGRAM_PHONE_NUM')}-session.json`
     )
-  },
-  updates: {
-    enabled: true
-  }
+  } 
 });
 
 module.exports.authenticate = async (requestCode) => {

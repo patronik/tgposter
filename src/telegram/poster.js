@@ -297,17 +297,6 @@ async function findDiscussionRoot(channelPeer, channelPostId) {
   return root;
 }
 
-async function preloadDialogs() {
-  await mtprotoCall('messages.getDialogs', {
-    offset_date: 0,
-    offset_id: 0,
-    offset_peer: { _: 'inputPeerEmpty' },
-    limit: 200,
-    hash: 0
-  });
-  console.log('📂 Dialogs preloaded');
-}
-
 async function prepareGroups() {
   const result = [];
   const data = readData();    
@@ -787,7 +776,6 @@ function scheduleDebouncedPost(
 async function processGroups(requestCode) {
   try {        
     await authenticate(requestCode);  
-    await preloadDialogs();
 
     const data = await prepareGroups();
 
@@ -817,6 +805,9 @@ async function processGroups(requestCode) {
         }
       }
     });
+
+    // workarond to start getting updates
+    setInterval(async () => { await mtprotoCall('updates.getState'); }, 15000);
     
     while (getIsRunning()) {
       for (const group of data) {        
