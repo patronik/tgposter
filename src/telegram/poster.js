@@ -4,6 +4,8 @@ const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
 /* -- STATE -- */
+let SELF_USER_ID = null;
+
 const lastSeenChannelPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
@@ -24,7 +26,6 @@ function setIsRunning(value) {
 function getMessagesSent() {
   return messagesSent;
 }
-
 /* -- STATE END -- */
 
 async function mtprotoCall(method, data, retry = 0) {
@@ -47,6 +48,20 @@ async function mtprotoCall(method, data, retry = 0) {
     } else {
       throw err;
     }
+  }
+}
+
+async function getSelfUserId() {
+  const res = await mtprotoCall('users.getFullUser', {
+    id: { _: 'inputUserSelf' }
+  });
+  return res.user.id;
+}
+
+async function initSelf() {
+  if (!SELF_USER_ID) {
+    SELF_USER_ID = await getSelfUserId();
+    console.log(`👤 SELF_USER_ID = ${SELF_USER_ID}`);
   }
 }
 
@@ -124,13 +139,19 @@ function getPeerType(peer) {
   return 'unknown';
 }
 
-async function handlePrompt(prompt, input) {
+async function handlePrompt(prompt, input, payload) {
   let result = {
     skip: false,
-    answer: ""
-  };  
+    answer: "",
+    message_id: null
+  }; 
+  
+  let inputData = `\n<<<${input}>>>`;
+  if (payload) {
+    inputData = `\nINPUT_JSON:\n${JSON.stringify(payload, null, 2)}`;
+  }
 
-  const response = await queryLLM(`${prompt} <<<${input}>>>`);
+  const response = await queryLLM(`${prompt}${inputData}`);
   console.log(`LLM response: "${response}"`);
 
   let jsonData;
@@ -430,7 +451,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
     await mtprotoCall('messages.sendReaction', params);
 
     messagesSent++;
-    console.log(`✅ Reacted to message ${targetMessage.id} in ${groupid}`);
+    console.log(`✅ Reacted to message ${params.msg_id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
   }
@@ -439,6 +460,75 @@ async function reactToMessage(peer, groupid, reaction, target) {
 /* -- END GROUP POSTING -- */
 
 /* -- CHANNEL CHAT POSTING -- */
+
+function buildLLMPayload(messages, discussionRootId) {
+  const root = messages.find(m => m.id === discussionRootId);
+  if (!root) throw new Error('Root message not found');
+
+  const ourMessages = messages.filter(
+    m => m.from_id?.user_id === SELF_USER_ID
+  );
+
+  const repliesToUs = messages
+    .filter(m =>
+      m.reply_to &&
+      ourMessages.some(om => om.id === m.reply_to.reply_to_msg_id)
+    )
+    .map(m => ({
+      id: m.id,
+      text: m.message || "",
+      reply_to_our_message_id: m.reply_to.reply_to_msg_id
+    }))
+    .sort((a, b) => b.id - a.id);
+
+  let target;
+
+  if (!ourMessages.length) {
+    target = root;
+  } else if (repliesToUs.length) {
+    target = messages.find(m => m.id === repliesToUs[0].id);
+  } else {
+    target = root;
+  }
+
+  return {
+    root: {
+      id: root.id,
+      text: root.message || ""
+    },
+    target: {
+      id: target.id,
+      text: target.message || ""
+    },
+    our_messages: ourMessages.map(m => ({
+      id: m.id,
+      text: m.message || ""
+    })),
+    replies_to_our_messages: repliesToUs
+  };
+}
+
+async function getDiscussionThread(linkedChatPeer, discussionRootId, limit = 500) {
+  const history = await mtprotoCall('messages.getHistory', {
+    peer: {
+      _: 'inputPeerChannel',
+      channel_id: linkedChatPeer.id,
+      access_hash: linkedChatPeer.access_hash
+    },
+    limit
+  });
+
+  return (history.messages || []).filter(m =>
+    m._ === 'message' &&
+    m.id &&
+    (
+      m.id === discussionRootId ||
+      m.reply_to?.reply_to_msg_id === discussionRootId ||
+      m.reply_to?.reply_to_top_id === discussionRootId
+    )
+  );
+}
+
 
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
@@ -469,7 +559,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
     // 5️⃣ Обробка target
     let targetMessage;    
-    if (target === '$' || target === '*') { 
+    if (target === '$' || target === '*' || target === '@') { 
       // Беремо історію коментарів
       const history = await mtprotoCall('messages.getHistory', {
         peer: {
@@ -520,9 +610,14 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       ).toString(),
     };
 
-    if (prompt && LLMEnabled()) {      
-      // handle prompt        
-      const res = await handlePrompt(prompt, targetMessage.message);
+    if (prompt && LLMEnabled()) {     
+      let payload;
+      if (target == '@') {
+        // ongoing discussion
+        const discussionThread = await getDiscussionThread(linkedChat.peer, discussionRoot.id);
+        payload = buildLLMPayload(discussionThread, discussionRoot.id);                
+      }     
+      const res = await handlePrompt(prompt, targetMessage.message, payload);
 
       if (res.skip) {
         console.log(`Skip sending to ${channelGroupId} due to agent directive`);
@@ -532,6 +627,10 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       if (!(res.answer.length > 0)) {
         console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
         return;
+      }
+      
+      if (res.message_id) {
+        params.reply_to_msg_id = res.message_id;
       }
 
       params.message = res.answer;
@@ -546,7 +645,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     await mtprotoCall('messages.sendMessage', params);
 
     messagesSent++;
-    console.log(`✅ Comment sent (reply_to=${targetMessage.id}) in ${channelGroupId}`);
+    console.log(`✅ Comment sent (reply_to=${params.reply_to_msg_id}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
   }
@@ -641,7 +740,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     await mtprotoCall('messages.sendReaction', params);
 
     messagesSent++;
-    console.log(`✅ Reacted to comment ${targetMessageId} in ${channelGroupId}`);
+    console.log(`✅ Reacted to comment ${params.msg_id} in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ Comment react error:', error);
   }
@@ -785,6 +884,7 @@ function scheduleDebouncedPost(
 async function processGroups(requestCode) {
   try {        
     await authenticate(requestCode);  
+    await initSelf();  
     await preloadDialogs();
 
     const data = await prepareGroups();

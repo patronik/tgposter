@@ -121,6 +121,8 @@ function renderTarget(key) {
       return "реплай до останнього";
     case '*':
       return "реплай до рандомного";
+    case '@':
+      return "ведення дискусії";
     default:
       return "по замовчуванню";
   }
