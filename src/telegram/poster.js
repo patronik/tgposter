@@ -299,7 +299,7 @@ async function prepareGroups() {
       await getPeerCached(group.groupid);
       result.push(group);
     } catch (err) {
-      console.log(`Failed joining to "${group.groupid}"`);
+      console.error(`❌ Failed joining to "${group.groupid}"`);
     }    
   }
   return result;  
