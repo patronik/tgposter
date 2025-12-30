@@ -312,13 +312,33 @@ async function getLinkedChatPeer(channelPeer) {
   }
 }
 
-async function getLastChannelPost(channelPeer) {
+async function getLastChannelPostWithDiscussion(channelPeer, scanLimit = 20) {
   const history = await mtprotoCall('messages.getHistory', {
-    peer: { _: 'inputPeerChannel', channel_id: channelPeer.id, access_hash: channelPeer.access_hash },
-    limit: 1,
+    peer: getInputPeer(channelPeer),
+    limit: scanLimit,
   });
-  if (!history.messages.length) throw new Error('No posts found');
-  return history.messages[0].id;
+
+  for (const msg of history.messages || []) {
+    if (msg._ !== 'message') continue;
+
+    try {
+      const res = await mtprotoCall('messages.getDiscussionMessage', {
+        peer: getInputPeer(channelPeer),
+        msg_id: msg.id,
+      });
+
+      // If this succeeds → discussion exists
+      return {
+        channel_post_id: msg.id,
+        discussion: res
+      };
+    } catch (e) {
+      // Expected for posts without discussion
+      continue;
+    }
+  }
+
+  throw new Error('No recent channel post with discussion found');
 }
 
 async function findDiscussionRoot(channelPeer, channelPostId) {
@@ -608,7 +628,7 @@ async function getChannelDiscussionThread(linkedChatPeer, discussionRootId, limi
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
-    const channelPostId = await getLastChannelPost(channelPeer);
+    const channelPostId = await getLastChannelPostWithDiscussion(channelPeer);
     console.log(`📰 Last channel post ID: ${channelPostId}`);
 
     // 2️⃣ Отримуємо linked discussion chat
@@ -1010,8 +1030,9 @@ async function processGroups(requestCode) {
     while (getIsRunning()) {
       for (const group of data) {        
         const { groupid, comment, reaction, prompt, target } = group;
+        console.log(`Processing ${groupid}`);
 
-        if (target == '^') continue;        
+        if (target == '^') continue;   
 
         const { peer } = await getPeerCached(groupid);
         const type = getPeerType(peer);
@@ -1025,6 +1046,8 @@ async function processGroups(requestCode) {
         }      
 
       }
+
+      console.log(`Go to sleep`);
       await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 1000);
     }  
   } catch (err) {
