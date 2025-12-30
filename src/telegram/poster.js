@@ -312,7 +312,7 @@ async function getLinkedChatPeer(channelPeer) {
   }
 }
 
-async function getLastChannelPostWithDiscussion(channelPeer, scanLimit = 20) {
+async function getLastChannelPost(channelPeer, scanLimit = 20) {
   const history = await mtprotoCall('messages.getHistory', {
     peer: getInputPeer(channelPeer),
     limit: scanLimit,
@@ -628,7 +628,7 @@ async function getChannelDiscussionThread(linkedChatPeer, discussionRootId, limi
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
-    const channelPostId = await getLastChannelPostWithDiscussion(channelPeer);
+    const channelPostId = await getLastChannelPost(channelPeer);
     console.log(`📰 Last channel post ID: ${channelPostId}`);
 
     // 2️⃣ Отримуємо linked discussion chat
