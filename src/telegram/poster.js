@@ -68,6 +68,20 @@ function getInputPeer(peer) {
   return inputPeer;
 }
 
+function isOurMessage(msg, sendAsPeer) {
+  if (!msg?.from_id) return false;
+
+  if (sendAsPeer && msg.from_id.channel_id === sendAsPeer.id) {
+    return true;
+  }
+
+  if (!sendAsPeer && msg.from_id.user_id === SELF_USER_ID) {
+    return true;
+  }
+
+  return false;
+}
+
 async function getSelfUserId() {
   const res = await mtprotoCall('users.getFullUser', {
     id: { _: 'inputUserSelf' }
@@ -366,6 +380,7 @@ async function sendMessage(peer, groupid, message, target, prompt) {
     };
 
     // reply logic
+    let targetMessage;
     if (target === '*' || target === '$' || target == '@') {
       const history = await mtprotoCall('messages.getHistory', {
         peer: inputPeer,
@@ -379,15 +394,14 @@ async function sendMessage(peer, groupid, message, target, prompt) {
       if (!validMessages.length) {
         throw new Error('No valid messages to reply to.');
       }
-
-      let targetMessage;
-      if (target == '$') {
+      
+      if (target === '$') {
         // last
         targetMessage = validMessages[0];
-      } else if (target == '*') {
+      } else if (target === '*') {
         // random
         targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
-      } else if (target == '@') {
+      } else if (target === '@') {
         // discussion root
         targetMessage = validMessages[validMessages.length - 1];
       }        
@@ -427,6 +441,13 @@ async function sendMessage(peer, groupid, message, target, prompt) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
 
+    // avoid replying to our messages    
+    if (params.reply_to_msg_id == targetMessage.id) {
+      if (isOurMessage(targetMessage, sendAsPeer)) {
+        throw new Error('Skip replying to our message.');       
+      }                
+    }  
+
     await mtprotoCall('messages.sendMessage', params);
 
     messagesSent++;
@@ -453,9 +474,9 @@ async function reactToMessage(peer, groupid, reaction, target) {
     }
 
     let targetMessage;
-    if (target == '$') {
+    if (target === '$') {
       targetMessage = validMessages[0];
-    } else if (target == '*')  {
+    } else if (target === '*')  {
       targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
     } else {
       throw new Error(`Not supported target ${target}.`);
@@ -472,6 +493,11 @@ async function reactToMessage(peer, groupid, reaction, target) {
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
+
+    // avoid reacting to our messages
+    if (isOurMessage(targetMessage, sendAsPeer)) {
+      throw new Error('Skip reacting to our message.');       
+    } 
 
     await mtprotoCall('messages.sendReaction', params);
 
@@ -635,7 +661,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
         targetMessage = postComments[0];
         console.log(`💬 Last comment ID: ${targetMessage.id}`);
       } else if (target === '*') {
-        targetMessage = postComments[getRandomNumber(0, postComments.length - 1)];
+        targetMessage = postComments[getRandomNumber(0, postComments.length - 1)];                
         console.log(`🎲 Random comment ID: ${targetMessage.id}`);
       }  
     } else {
@@ -688,7 +714,14 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     let sendAsPeer = await getSendAsPeer();    
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
-    }
+    } 
+
+    // avoid replying to our messages
+    if (params.reply_to_msg_id == targetMessage.id) {
+      if (isOurMessage(targetMessage, sendAsPeer)) {
+        throw new Error('Skip replying to our message.');       
+      } 
+    }    
 
     // 7️⃣ Відправляємо коментар
     await mtprotoCall('messages.sendMessage', params);
@@ -750,24 +783,24 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     );
 
     /** 6️⃣ Вибір target */
-    let targetMessageId;
+    let targetMessage;
     if (target === '$' || target === '*') {
       if (!comments.length) {
         throw new Error('No comments for post');
       }
       if (target === '$') {
-        targetMessageId = comments[0].id;
-        console.log(`💬 Last comment ID: ${targetMessageId}`);
+        targetMessage = comments[0];
+        console.log(`💬 Last comment ID: ${targetMessage.id}`);
       } else if (target === '*') {
-        targetMessageId = comments[getRandomNumber(0, comments.length - 1)].id;
-        console.log(`💬 Random comment ID: ${targetMessageId}`);
+        targetMessage = comments[getRandomNumber(0, comments.length - 1)];
+        console.log(`💬 Random comment ID: ${targetMessage.id}`);
       } 
     } else {
-      targetMessageId = discussionRoot.id;
-      console.log(`💬 Root ID: ${targetMessageId}`);
+      targetMessage = discussionRoot;
+      console.log(`💬 Root ID: ${targetMessage.id}`);
     }
 
-    console.log(`🎯 Reacting to comment ID: ${targetMessageId}`);
+    console.log(`🎯 Reacting to comment ID: ${targetMessage.id}`);
 
     let params = {
       peer: {
@@ -775,7 +808,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
         channel_id: linkedChat.peer.id,
         access_hash: linkedChat.peer.access_hash
       },
-      msg_id: targetMessageId,
+      msg_id: targetMessage.id,
       reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
       big: false
     };
@@ -784,6 +817,11 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
+
+    // avoid reacting to our messages    
+    if (isOurMessage(targetMessage, sendAsPeer)) {
+      throw new Error('Skip reacting to our message.');       
+    } 
 
     /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', params);
