@@ -330,7 +330,7 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
       // If this succeeds → discussion exists
       return {
         channelPostId: msg.id,
-        discussionRoot: res
+        discussionRoot: res.messages[0]
       };
     } catch (e) {
       // Expected for posts without discussion
