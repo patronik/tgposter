@@ -567,7 +567,7 @@ async function buildLLMPayload(messages, discussionRootId) {
   };
 }
 
-async function getGroupDiscussionThread(inputPeer, discussionRootId, limit = 500) {
+async function getGroupDiscussionThread(inputPeer, discussionRootId, limit = 2000) {
   const history = await mtprotoCall('messages.getHistory', {
     peer: inputPeer,
     limit
@@ -584,7 +584,7 @@ async function getGroupDiscussionThread(inputPeer, discussionRootId, limit = 500
   );
 }
 
-async function getChannelDiscussionThread(linkedChatPeer, discussionRootId, limit = 500) {
+async function getChannelDiscussionThread(linkedChatPeer, discussionRootId, limit = 2000) {
   const history = await mtprotoCall('messages.getHistory', {
     peer: {
       _: 'inputPeerChannel',
