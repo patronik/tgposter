@@ -51,6 +51,23 @@ async function mtprotoCall(method, data, retry = 0) {
   }
 }
 
+function getInputPeer(peer) {
+  let inputPeer;
+  if (peer._ === 'chat') {
+      inputPeer = { 
+        _: 'inputPeerChat', 
+        chat_id: peer.id 
+      };
+  } else {
+    inputPeer = {
+        _: 'inputPeerChannel',
+        channel_id: peer.id,
+        access_hash: peer.access_hash,
+    };
+  }   
+  return inputPeer;
+}
+
 async function getSelfUserId() {
   const res = await mtprotoCall('users.getFullUser', {
     id: { _: 'inputUserSelf' }
@@ -320,8 +337,7 @@ async function preloadDialogs() {
     offset_peer: { _: 'inputPeerEmpty' },
     limit: 200,
     hash: 0
-  });
-  console.log('📂 Dialogs preloaded');
+  });  
 }
 
 async function prepareGroups() {
@@ -332,7 +348,7 @@ async function prepareGroups() {
       await getPeerCached(group.groupid);
       result.push(group);
     } catch (err) {
-      console.error(`❌ Failed joining to "${group.groupid}"`);
+      console.error(`❌ Failed joining "${group.groupid}"`);
     }    
   }
   return result;  
@@ -341,20 +357,18 @@ async function prepareGroups() {
 /* -- GROUP POSTING -- */
 async function sendMessage(peer, groupid, message, target, prompt) {
   try {  
+    let inputPeer = getInputPeer(peer);
+    
     const params = {
-      peer: {
-        _: 'inputPeerChannel',
-        channel_id: peer.id,
-        access_hash: peer.access_hash,
-      },
+      peer: inputPeer,
       message,
       random_id: BigInt(Math.floor(Math.random() * 1e18)).toString(),
     };
 
     // reply logic
-    if (target === '*' || target === '$') {
+    if (target === '*' || target === '$' || target == '@') {
       const history = await mtprotoCall('messages.getHistory', {
-        peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
+        peer: inputPeer,
         limit: 100,
       });
       
@@ -368,25 +382,40 @@ async function sendMessage(peer, groupid, message, target, prompt) {
 
       let targetMessage;
       if (target == '$') {
+        // last
         targetMessage = validMessages[0];
-      } else if (target == '*')  {
+      } else if (target == '*') {
+        // random
         targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
-      }         
+      } else if (target == '@') {
+        // discussion root
+        targetMessage = validMessages[validMessages.length - 1];
+      }        
 
       params.reply_to_msg_id = targetMessage.id;
       
       if (prompt && LLMEnabled()) {
         // handle prompt        
-        const res = await handlePrompt(prompt, targetMessage.message);
+        let jsonPayload;
+        if (target == '@') {
+          const discussionThread = await getGroupDiscussionThread(inputPeer, targetMessage.id);
+          jsonPayload = JSON.stringify(await buildLLMPayload(discussionThread, targetMessage.id), null, 2);
+        }  
+        
+        const res = await handlePrompt(prompt, jsonPayload || targetMessage.message);
                                                                                                                                                                         
         if (res.skip) {
           console.log(`Skip sending to ${groupid} due to agent directive`);
           return;
         }
 
-        if (!(res.answer.length > 0)) {
+        if (!res.answer) {
           console.log(`Skip sending to ${groupid} due to an empty answer`);
           return;
+        }
+
+        if (res.message_id) {
+          params.reply_to_msg_id = res.message_id;
         }
 
         params.message = res.answer;
@@ -408,9 +437,10 @@ async function sendMessage(peer, groupid, message, target, prompt) {
 }
 
 async function reactToMessage(peer, groupid, reaction, target) {
-  try {    
+  try {   
+    let inputPeer = getInputPeer(peer); 
     const history = await mtprotoCall('messages.getHistory', {
-      peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
+      peer: inputPeer,
       limit: 100,
     });
 
@@ -428,11 +458,11 @@ async function reactToMessage(peer, groupid, reaction, target) {
     } else if (target == '*')  {
       targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
     } else {
-      targetMessage = validMessages[validMessages.length - 1];
+      throw new Error(`Not supported target ${target}.`);
     }
 
     let params = {
-      peer: { _: 'inputPeerChannel', channel_id: peer.id, access_hash: peer.access_hash },
+      peer: inputPeer,
       msg_id: targetMessage.id,
       reaction: [{ _: 'reactionEmoji', emoticon: reaction }],
       big: false,
@@ -511,7 +541,24 @@ async function buildLLMPayload(messages, discussionRootId) {
   };
 }
 
-async function getDiscussionThread(linkedChatPeer, discussionRootId, limit = 500) {
+async function getGroupDiscussionThread(inputPeer, discussionRootId, limit = 500) {
+  const history = await mtprotoCall('messages.getHistory', {
+    peer: inputPeer,
+    limit
+  });
+
+  return (history.messages || []).filter(m =>
+    m._ === 'message' &&
+    m.id &&
+    (
+      m.id === discussionRootId ||
+      m.reply_to?.reply_to_msg_id === discussionRootId ||
+      m.reply_to?.reply_to_top_id === discussionRootId
+    )
+  );
+}
+
+async function getChannelDiscussionThread(linkedChatPeer, discussionRootId, limit = 500) {
   const history = await mtprotoCall('messages.getHistory', {
     peer: {
       _: 'inputPeerChannel',
@@ -531,7 +578,6 @@ async function getDiscussionThread(linkedChatPeer, discussionRootId, limit = 500
     )
   );
 }
-
 
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
@@ -616,10 +662,8 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     if (prompt && LLMEnabled()) {     
       let jsonPayload;
       if (target == '@') {
-        // ongoing discussion
-        const discussionThread = await getDiscussionThread(linkedChat.peer, discussionRoot.id);
-        const payload = await buildLLMPayload(discussionThread, discussionRoot.id); 
-        jsonPayload = JSON.stringify(payload, null, 2);
+        const discussionThread = await getChannelDiscussionThread(linkedChat.peer, discussionRoot.id);
+        jsonPayload = JSON.stringify(await buildLLMPayload(discussionThread, discussionRoot.id), null, 2);
       }    
 
       const res = await handlePrompt(prompt, jsonPayload || targetMessage.message);
@@ -629,7 +673,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
         return;
       }
 
-      if (!(res.answer.length > 0)) {
+      if (!res.answer) {
         console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
         return;
       }
@@ -792,7 +836,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
       return;
     } 
 
-    if (!(res.answer.length > 0)) {
+    if (!res.answer) {
       console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
       return;
     }
