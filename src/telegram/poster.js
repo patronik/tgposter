@@ -329,8 +329,8 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
 
       // If this succeeds → discussion exists
       return {
-        channel_post_id: msg.id,
-        discussion: res
+        channelPostId: msg.id,
+        discussionRoot: res
       };
     } catch (e) {
       // Expected for posts without discussion
@@ -628,8 +628,9 @@ async function getChannelDiscussionThread(linkedChatPeer, discussionRootId, limi
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
-    const channelPostId = await getLastChannelPost(channelPeer);
+    const { channelPostId, discussionRoot } = await getLastChannelPost(channelPeer);
     console.log(`📰 Last channel post ID: ${channelPostId}`);
+    console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
 
     // 2️⃣ Отримуємо linked discussion chat
     const linkedChat = await getLinkedChatPeer(channelPeer);
@@ -642,15 +643,6 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     } else {
       throw new Error('Invalid linked chat peer');
     }
-
-    // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
-    const discussionRoot = await findDiscussionRoot(channelPeer, channelPostId);
-
-    if (!discussionRoot.id) {
-      throw new Error('Discussion root not found for last channel post');
-    }
-
-    console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
 
     // 5️⃣ Обробка target
     let targetMessage;    
