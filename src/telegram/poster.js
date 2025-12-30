@@ -55,7 +55,7 @@ async function getSelfUserId() {
   const res = await mtprotoCall('users.getFullUser', {
     id: { _: 'inputUserSelf' }
   });
-  return res.user.id;
+  return res.users[0].id;
 }
 
 async function initSelf() {
@@ -139,19 +139,14 @@ function getPeerType(peer) {
   return 'unknown';
 }
 
-async function handlePrompt(prompt, input, payload) {
+async function handlePrompt(prompt, input) {
   let result = {
     skip: false,
     answer: "",
     message_id: null
   }; 
-  
-  let inputData = `\n<<<${input}>>>`;
-  if (payload) {
-    inputData = `\nINPUT_JSON:\n${JSON.stringify(payload, null, 2)}`;
-  }
-
-  const response = await queryLLM(`${prompt}${inputData}`);
+    
+  const response = await queryLLM(`${prompt}\nINPUT:\n${input}`);
   console.log(`LLM response: "${response}"`);
 
   let jsonData;
@@ -461,13 +456,21 @@ async function reactToMessage(peer, groupid, reaction, target) {
 
 /* -- CHANNEL CHAT POSTING -- */
 
-function buildLLMPayload(messages, discussionRootId) {
+async function buildLLMPayload(messages, discussionRootId) {
   const root = messages.find(m => m.id === discussionRootId);
   if (!root) throw new Error('Root message not found');
 
-  const ourMessages = messages.filter(
-    m => m.from_id?.user_id === SELF_USER_ID
-  );
+  let ourMessages = [];
+  const sendAsPeer = await getSendAsPeer();
+  if (sendAsPeer) {
+    ourMessages = messages.filter(
+      m => m.from_id?.channel_id === sendAsPeer.id
+    );
+  } else {
+    ourMessages = messages.filter(
+      m => m.from_id?.user_id === SELF_USER_ID
+    );
+  }  
 
   const repliesToUs = messages
     .filter(m =>
@@ -559,7 +562,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
 
     // 5️⃣ Обробка target
     let targetMessage;    
-    if (target === '$' || target === '*' || target === '@') { 
+    if (target === '$' || target === '*') { 
       // Беремо історію коментарів
       const history = await mtprotoCall('messages.getHistory', {
         peer: {
@@ -611,13 +614,15 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     };
 
     if (prompt && LLMEnabled()) {     
-      let payload;
+      let jsonPayload;
       if (target == '@') {
         // ongoing discussion
         const discussionThread = await getDiscussionThread(linkedChat.peer, discussionRoot.id);
-        payload = buildLLMPayload(discussionThread, discussionRoot.id);                
-      }     
-      const res = await handlePrompt(prompt, targetMessage.message, payload);
+        const payload = await buildLLMPayload(discussionThread, discussionRoot.id); 
+        jsonPayload = JSON.stringify(payload, null, 2);
+      }    
+
+      const res = await handlePrompt(prompt, jsonPayload || targetMessage.message);
 
       if (res.skip) {
         console.log(`Skip sending to ${channelGroupId} due to agent directive`);
