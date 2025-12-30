@@ -587,42 +587,86 @@ async function buildLLMPayload(messages, discussionRootId) {
   };
 }
 
-async function getGroupDiscussionThread(inputPeer, discussionRootId, limit = 2000) {
-  const history = await mtprotoCall('messages.getHistory', {
-    peer: inputPeer,
-    limit
-  });
+async function getGroupDiscussionThread(
+  inputPeer,
+  discussionRootId,
+  totalLimit = 2000
+) {
+  const result = [];
+  let offsetId = 0;
+  const batchSize = 100;
 
-  return (history.messages || []).filter(m =>
-    m._ === 'message' &&
-    m.id &&
-    (
-      m.id === discussionRootId ||
-      m.reply_to?.reply_to_msg_id === discussionRootId ||
-      m.reply_to?.reply_to_top_id === discussionRootId
-    )
-  );
+  while (result.length < totalLimit) {
+    const history = await mtprotoCall('messages.getHistory', {
+      peer: inputPeer,
+      limit: batchSize,
+      offset_id: offsetId
+    });
+
+    const messages = history.messages || [];
+    if (!messages.length) break;
+
+    for (const m of messages) {
+      if (
+        m._ === 'message' &&
+        m.id &&
+        (
+          m.id === discussionRootId ||
+          m.reply_to?.reply_to_msg_id === discussionRootId ||
+          m.reply_to?.reply_to_top_id === discussionRootId
+        )
+      ) {
+        result.push(m);
+      }
+    }
+
+    // paginate backwards in time
+    offsetId = messages[messages.length - 1].id;
+  }
+
+  return result;
 }
 
-async function getChannelDiscussionThread(linkedChatPeer, discussionRootId, limit = 2000) {
-  const history = await mtprotoCall('messages.getHistory', {
-    peer: {
-      _: 'inputPeerChannel',
-      channel_id: linkedChatPeer.id,
-      access_hash: linkedChatPeer.access_hash
-    },
-    limit
-  });
+async function getChannelDiscussionThread(
+  linkedChatPeer,
+  discussionRootId,
+  totalLimit = 2000
+) {
+  const result = [];
+  let offsetId = 0;
+  const batchSize = 100;
 
-  return (history.messages || []).filter(m =>
-    m._ === 'message' &&
-    m.id &&
-    (
-      m.id === discussionRootId ||
-      m.reply_to?.reply_to_msg_id === discussionRootId ||
-      m.reply_to?.reply_to_top_id === discussionRootId
-    )
-  );
+  while (result.length < totalLimit) {
+    const history = await mtprotoCall('messages.getHistory', {
+      peer: {
+        _: 'inputPeerChannel',
+        channel_id: linkedChatPeer.id,
+        access_hash: linkedChatPeer.access_hash
+      },
+      limit: batchSize,
+      offset_id: offsetId
+    });
+
+    const messages = history.messages || [];
+    if (!messages.length) break;
+
+    for (const m of messages) {
+      if (
+        m._ === 'message' &&
+        (
+          m.id === discussionRootId ||
+          m.reply_to?.reply_to_msg_id === discussionRootId ||
+          m.reply_to?.reply_to_top_id === discussionRootId
+        )
+      ) {
+        result.push(m);
+      }
+    }
+
+    offsetId = messages[messages.length - 1].id;
+  }
+
+  return result;
 }
 
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
