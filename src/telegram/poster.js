@@ -33,10 +33,10 @@ async function mtprotoCall(method, data, retry = 0) {
       const result = await mtproto.call(method, data);
       await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 1000);
       return result;
-    } catch (err) { 
-    console.error(`❌ MTProto call error:`, err);
+    } catch (err) {     
     const errorMessage = err.error_message || err.message;
     if (errorMessage && errorMessage.startsWith('FLOOD_WAIT')) { 
+      console.error(`❌ Flood wait error:`, err);
       const wait = Number(errorMessage.split('_').pop()); 
       await sleep(wait * 1000); 
       if (retry < 2) {
