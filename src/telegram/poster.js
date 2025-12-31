@@ -985,7 +985,9 @@ async function processGroups(requestCode) {
   try {        
     await authenticate(requestCode);  
     await initSelf();  
-    await preloadDialogs();    
+    await preloadDialogs();
+    
+    const data = await prepareGroups();
 
     mtproto.updates.on('updates', async ({ updates }) => {
       if (!getIsRunning()) return;
@@ -999,8 +1001,7 @@ async function processGroups(requestCode) {
     
         const channelId = msg.peer_id?.channel_id;
         if (!channelId) continue;
-        
-        const data = await prepareGroups();
+                
         for (const group of data) {
           if (group.target !== '^') continue;
     
