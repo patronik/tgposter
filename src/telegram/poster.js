@@ -1023,7 +1023,7 @@ async function processGroups(requestCode) {
     while (getIsRunning()) {
       for (const group of data) {        
         const { groupid, comment, reaction, prompt, target } = group;
-        console.log(`Processing ${groupid}`);
+        console.log(`\nProcessing ${groupid}`);
 
         if (target == '^') continue;   
 

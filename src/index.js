@@ -120,12 +120,12 @@ ipcMain.handle('start', (_) => {
   TASK_COUNT++;      
   const task = processGroups(requestCode);
   task.then(() => TASK_COUNT--);
-  console.log(`started`);
+  console.log(`🚀 started`);
 });
 
 ipcMain.handle('stop', (_) => {
   setIsRunning(false);  
-  console.log(`stopped`);
+  console.log(`🛑 stopped`);
 });
 
 ipcMain.handle('get-is-running', () => {
