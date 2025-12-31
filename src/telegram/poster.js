@@ -328,10 +328,7 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
       });
 
       // If this succeeds → discussion exists
-      return {
-        channelPostId: msg.id,
-        discussionRoot: res.messages[0]
-      };
+      return msg.id;
     } catch (e) {
       // Expected for posts without discussion
       continue;
@@ -432,7 +429,7 @@ async function sendMessage(peer, groupid, message, target, prompt) {
         // handle prompt        
         let jsonPayload;
         if (target == '@') {
-          const discussionThread = await getGroupDiscussionThread(inputPeer, targetMessage.id);
+          const discussionThread = await getDiscussionThread(inputPeer, targetMessage.id);
           jsonPayload = JSON.stringify(await buildLLMPayload(discussionThread, targetMessage.id), null, 2);
         }  
         
@@ -587,83 +584,43 @@ async function buildLLMPayload(messages, discussionRootId) {
   };
 }
 
-async function getGroupDiscussionThread(
+async function getDiscussionThread(
   inputPeer,
   discussionRootId,
-  totalLimit = 2000
+  totalLimit = 1000
 ) {
   const result = [];
-  let offsetId = 0;
   const batchSize = 100;
+  let currOffset = 0;
 
-  while (result.length < totalLimit) {
-    const history = await mtprotoCall('messages.getHistory', {
-      peer: inputPeer,
-      limit: batchSize,
-      offset_id: offsetId
-    });
+  let params = {
+    peer: inputPeer,
+    limit: batchSize
+  };
 
-    const messages = history.messages || [];
-    if (!messages.length) break;
+  while (true) {
+    const history = await mtprotoCall('messages.getHistory', params);
+    
+    const messages = history.messages || [];    
+    if (messages.length == 0) break;
 
     for (const m of messages) {
-      if (
-        m._ === 'message' &&
-        m.id &&
+      if (m._ === 'message' &&
         (
           m.id === discussionRootId ||
           m.reply_to?.reply_to_msg_id === discussionRootId ||
           m.reply_to?.reply_to_top_id === discussionRootId
         )
       ) {
-        result.push(m);
-      }
+        result.push(m);      
+      }      
+      if (result.length >= totalLimit) break;
     }
+        
+    currOffset += batchSize;
+    if (currOffset >= totalLimit) break;
 
-    // paginate backwards in time
-    offsetId = messages[messages.length - 1].id;
-  }
-
-  return result;
-}
-
-async function getChannelDiscussionThread(
-  linkedChatPeer,
-  discussionRootId,
-  totalLimit = 2000
-) {
-  const result = [];
-  let offsetId = 0;
-  const batchSize = 100;
-
-  while (result.length < totalLimit) {
-    const history = await mtprotoCall('messages.getHistory', {
-      peer: {
-        _: 'inputPeerChannel',
-        channel_id: linkedChatPeer.id,
-        access_hash: linkedChatPeer.access_hash
-      },
-      limit: batchSize,
-      offset_id: offsetId
-    });
-
-    const messages = history.messages || [];
-    if (!messages.length) break;
-
-    for (const m of messages) {
-      if (
-        m._ === 'message' &&
-        (
-          m.id === discussionRootId ||
-          m.reply_to?.reply_to_msg_id === discussionRootId ||
-          m.reply_to?.reply_to_top_id === discussionRootId
-        )
-      ) {
-        result.push(m);
-      }
-    }
-
-    offsetId = messages[messages.length - 1].id;
+    params.add_offset = currOffset;
   }
 
   return result;
@@ -672,7 +629,8 @@ async function getChannelDiscussionThread(
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
-    const { channelPostId, discussionRoot } = await getLastChannelPost(channelPeer);
+    const channelPostId = await getLastChannelPost(channelPeer);
+    const discussionRoot = await findDiscussionRoot(channelPeer, channelPostId);
     console.log(`📰 Last channel post ID: ${channelPostId}`);
     console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
 
@@ -744,7 +702,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
     if (prompt && LLMEnabled()) {     
       let jsonPayload;
       if (target == '@') {
-        const discussionThread = await getChannelDiscussionThread(linkedChat.peer, discussionRoot.id);
+        const discussionThread = await getDiscussionThread(getInputPeer(linkedChat.peer), discussionRoot.id);
         jsonPayload = JSON.stringify(await buildLLMPayload(discussionThread, discussionRoot.id), null, 2);
       }    
 
