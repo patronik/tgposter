@@ -584,46 +584,45 @@ async function buildLLMPayload(messages, discussionRootId) {
   };
 }
 
-async function getDiscussionThread(
-  inputPeer,
-  discussionRootId,
-  totalLimit = 1000
-) {
-  const result = [];
+async function getDiscussionThread(inputPeer, discussionRootId) {
+  const result = new Map();
   const limit = 100;
-  let offset = 0;
-
-  let params = {
-    peer: inputPeer,
-    limit
-  };
+  let offset_id = 0;
 
   while (true) {
-    const history = await mtprotoCall('messages.getHistory', params);
-    
-    const messages = history.messages || [];    
-    if (messages.length == 0) break;
+    const history = await mtprotoCall('messages.getHistory', {
+      peer: inputPeer,
+      offset_id,
+      limit
+    });
+
+    const messages = history.messages || [];
+    if (messages.length === 0) break;
 
     for (const m of messages) {
-      if (m._ === 'message' &&
-        (
-          m.id === discussionRootId ||
-          m.reply_to?.reply_to_msg_id === discussionRootId ||
-          m.reply_to?.reply_to_top_id === discussionRootId
-        )
-      ) {
-        result.push(m);      
-      }      
-      if (result.length >= totalLimit) break;
-    }
-        
-    offset += limit;
-    if (offset >= totalLimit) break;
+      if (m._ !== 'message') continue;
 
-    params.add_offset = offset;
+      if (m.id === discussionRootId) {
+        result.set(m.id, m);
+        return [...result.values()].sort((a, b) => a.id - b.id);
+      }
+
+      if (m.id < discussionRootId) {
+        return [...result.values()].sort((a, b) => a.id - b.id);
+      }
+
+      if (
+        m.reply_to?.reply_to_top_id === discussionRootId ||
+        m.reply_to?.reply_to_msg_id === discussionRootId
+      ) {
+        result.set(m.id, m);
+      }
+    }
+
+    offset_id = messages[messages.length - 1].id;
   }
 
-  return result;
+  return [...result.values()].sort((a, b) => a.id - b.id);
 }
 
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
