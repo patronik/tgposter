@@ -590,12 +590,12 @@ async function getDiscussionThread(
   totalLimit = 1000
 ) {
   const result = [];
-  const batchSize = 100;
-  let currOffset = 0;
+  const limit = 100;
+  let offset = 0;
 
   let params = {
     peer: inputPeer,
-    limit: batchSize
+    limit
   };
 
   while (true) {
@@ -617,10 +617,10 @@ async function getDiscussionThread(
       if (result.length >= totalLimit) break;
     }
         
-    currOffset += batchSize;
-    if (currOffset >= totalLimit) break;
+    offset += limit;
+    if (offset >= totalLimit) break;
 
-    params.add_offset = currOffset;
+    params.add_offset = offset;
   }
 
   return result;
