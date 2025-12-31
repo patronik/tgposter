@@ -985,9 +985,7 @@ async function processGroups(requestCode) {
   try {        
     await authenticate(requestCode);  
     await initSelf();  
-    await preloadDialogs();
-
-    const data = await prepareGroups();
+    await preloadDialogs();    
 
     mtproto.updates.on('updates', async ({ updates }) => {
       if (!getIsRunning()) return;
@@ -1001,7 +999,8 @@ async function processGroups(requestCode) {
     
         const channelId = msg.peer_id?.channel_id;
         if (!channelId) continue;
-    
+        
+        const data = await prepareGroups();
         for (const group of data) {
           if (group.target !== '^') continue;
     
@@ -1021,6 +1020,7 @@ async function processGroups(requestCode) {
     setInterval(async () => { await preloadDialogs(); }, 60 * 15 * 1000);
     
     while (getIsRunning()) {
+      const data = await prepareGroups();
       for (const group of data) {        
         const { groupid, comment, reaction, prompt, target } = group;
         console.log(`\nProcessing ${groupid}`);
