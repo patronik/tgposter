@@ -760,7 +760,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 
     /** 3️⃣ Отримуємо ОСТАННІЙ ПОСТ каналу */
     const channelPostId = await getLastChannelPost(channelPeer);    
-    console.log(`📰 Last channel post ID: ${lastPost.id}`);
+    console.log(`📰 Last channel post ID: ${channelPostId}`);
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
     const discussionRoot = await findDiscussionRoot(channelPeer, channelPostId);
