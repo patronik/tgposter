@@ -768,12 +768,11 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       limit: 1
     });
 
-    const lastPost = channelHistory.messages?.find(m => m._ === 'message' && m.id);
-    if (!lastPost) throw new Error('No channel posts found');
+    const channelPostId = await getLastChannelPost(channelPeer);    
     console.log(`📰 Last channel post ID: ${lastPost.id}`);
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
-    const discussionRoot = await findDiscussionRoot(channelPeer, lastPost.id);
+    const discussionRoot = await findDiscussionRoot(channelPeer, channelPostId);
 
     if (!discussionRoot.id) {
       throw new Error('Discussion root not found for last channel post');
