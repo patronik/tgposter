@@ -422,6 +422,23 @@ async function sendAndMaybeEdit(sendParams, edition, logPrefix = '') {
     }, parseInt(getConfigItem('TELEGRAM_EDIT_DELAY') || '10', 10) * 1000);
   }
 
+  /* ---- DELETE AFTER DELAY ---- */
+  const deleteDelay = getConfigItem('TELEGRAM_DELETE_DELAY');
+  if (deleteDelay && sentMessageId) {
+    setTimeout(async () => {
+      try {
+        await mtprotoCall('messages.deleteMessages', {
+          peer: sendParams.peer,
+          id: [sentMessageId],
+          revoke: true
+        });
+        console.log(`🗑️ ${logPrefix} deleted`);
+      } catch (err) {
+        console.error(`❌ Failed to delete ${logPrefix}:`, err);
+      }
+    }, parseInt(deleteDelay, 10) * 1000);
+  }
+
   return sentMessageId;
 }
 
