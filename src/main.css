@@ -208,6 +208,10 @@ button:disabled {
   margin: 5px;
 }
 
+.controls .status_element {
+  padding-top: 7px;
+}
+
 .button-group {
   display: flex;  
   justify-content: center; 
