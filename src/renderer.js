@@ -75,7 +75,7 @@ actionBtn.onclick = async () => {
 // request auth code
 window.api.onCodeRequest(() => {
   waitingForCode = true;
-  appStatus.textContent = 'Введіть код:';
+  appStatus.innerHTML = '<b>Введіть код:</b>';
   codeInput.value = '';
   input.focus();
 });
@@ -85,7 +85,7 @@ sendCodeBtn.onclick = async () => {
   if (!waitingForCode) return;
   try {
     await window.api.submitCode(codeInput.value);
-    appStatus.textContent = 'Код надісланий';
+    appStatus.innerHTML = '<b>Код надісланий</b>';
     waitingForCode = false;
   } catch (err) {
     appStatus.textContent = err.message;
