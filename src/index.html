@@ -17,22 +17,29 @@
       <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
       <line x1="12" y1="17" x2="12.01" y2="17"/>
     </svg> Допомога</a> 
-    
+
     <div class="form-grid">
-      <div class="form-group"> 
-        <input type="hidden" id="id" value="">       
-        <label for="groupid">Група/Канал</label>
-        <input id="groupid"/>
-      </div>
-      
-      <div class="form-group">
-        <label for="comment">Повідомлення</label>
-        <textarea id="comment"></textarea>
-      </div>
-      
+        <div class="form-group"> 
+          <input type="hidden" id="id" value="">       
+          <label for="groupid">Група/Канал</label>
+          <input id="groupid"/>
+        </div>
+        
+        <div class="form-group">
+          <label for="comment">Повідомлення</label>
+          <textarea id="comment"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="edition">Оновлення</label>
+          <textarea id="edition"></textarea>
+        </div>                                
+    </div>
+    
+    <div class="form-grid">                            
       <div class="form-group">
         <label for="reaction">Реакція</label>
-        <input id="reaction" />
+        <input id="reaction"/>
       </div>
       
       <div class="form-group">
@@ -49,26 +56,28 @@
           <option value="*">реплай до рандомного</option>
           <option value="@">ведення дискусії</option>
         </select>        
-      </div>   
-      
-      <div class="button-group">
-        <div>
-          <button id="add_btn" onclick="add()"><span class="material-icons">add</span></button>
-          <button id="save_btn" style="display: none;" onclick="save()"><span class="material-icons">save</span></button>
-        </div>        
-        <div>
-          <button onclick="exportData()">
-          <span class="material-icons">upload</span>
-        </button>
-        </div>
-        <div>
-          <button onclick="importData()">
-          <span class="material-icons">download</span>
-        </button>        
-        </div>                
       </div>                
-    </div>  
-  </div>
+    </div>
+
+    <div class="form-grid">
+        <div class="button-group">
+          <div>
+            <button id="add_btn" onclick="add()"><span class="material-icons">add</span></button>
+            <button id="save_btn" style="display: none;" onclick="save()"><span class="material-icons">save</span></button>
+          </div>        
+          <div>
+            <button onclick="exportData()">
+            <span class="material-icons">upload</span>
+          </button>
+          </div>
+          <div>
+            <button onclick="importData()">
+            <span class="material-icons">download</span>
+          </button>        
+          </div>                
+        </div>                
+      </div> 
+    </div>
 
     <div class="container">    
       <div class="controls">                    
@@ -89,6 +98,7 @@
         <tr>
           <th>Група/Канал</th>
           <th>Повідомлення</th>
+          <th>Оновлення</th>
           <th>Реакція</th>          
           <th>ШІ Промт</th>          
           <th>Реплай</th>

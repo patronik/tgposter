@@ -137,8 +137,9 @@ async function load() {
     tr.innerHTML = `
       <td>${i.groupid}</td>
       <td>${i.comment}</td> 
+      <td>${i.edition}</td>
       <td>${i.reaction}</td>
-      <td>${i.prompt}</td>
+      <td>${i.prompt.slice(0, 100)}</td>
       <td>${renderTarget(i.target)}</td>
       <td>                
         <div class="btn_container">
@@ -155,17 +156,13 @@ async function add() {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const groupid = document.getElementById('groupid').value;
   const comment = document.getElementById('comment').value;
+  const edition = document.getElementById('edition').value;
   const reaction = document.getElementById('reaction').value;
   const prompt = document.getElementById('prompt').value;
   const target = document.getElementById('target').value;
-  await window.api.addItem({
-    id,
-    groupid,
-    comment,
-    reaction,
-    prompt,
-    target
-  });
+  await window.api.addItem(
+    { id, groupid, comment, edition, reaction, prompt, target }
+  );
   load();
 }
 
@@ -174,6 +171,7 @@ async function edit(id) {
   document.getElementById('id').value = id;
   document.getElementById('groupid').value = item.groupid;
   document.getElementById('comment').value = item.comment;
+  document.getElementById('edition').value = item.edition;
   document.getElementById('reaction').value = item.reaction;
   document.getElementById('prompt').value = item.prompt;
   document.getElementById('target').value = item.target;
@@ -186,15 +184,19 @@ async function save() {
   const id = document.getElementById('id').value;
   const groupid = document.getElementById('groupid').value;
   const comment = document.getElementById('comment').value;
+  const edition = document.getElementById('edition').value;
   const reaction = document.getElementById('reaction').value;
   const prompt = document.getElementById('prompt').value;
   const target = document.getElementById('target').value;
-  await window.api.updateItem({ id, groupid, comment, reaction, prompt, target });
+  await window.api.updateItem(
+    { id, groupid, comment, edition, reaction, prompt, target }
+  );
   load();
 
   document.getElementById('id').value = '';
   document.getElementById('groupid').value = '';
   document.getElementById('comment').value = '';
+  document.getElementById('edition').value = '';
   document.getElementById('reaction').value = '';
   document.getElementById('prompt').value = '';
   document.getElementById('target').value = '';
