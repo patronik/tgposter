@@ -385,8 +385,48 @@ async function prepareGroups() {
   return result;  
 }
 
+async function sendAndMaybeEdit(sendParams, edition, logPrefix = '') {
+  const result = await mtprotoCall('messages.sendMessage', sendParams);
+
+  let sentMessageId;
+
+  for (const update of result.updates || []) {
+    if (
+      update._ === 'updateNewMessage' ||
+      update._ === 'updateNewChannelMessage'
+    ) {
+      if (update.message?._ === 'message') {
+        sentMessageId = update.message.id;
+        break;
+      }
+    }
+
+    if (update._ === 'updateMessageID' && update.id) {
+      sentMessageId = update.id;
+    }
+  }
+
+  if (edition && sentMessageId) {
+    setTimeout(async () => {
+      try {
+        await mtprotoCall('messages.editMessage', {
+          peer: sendParams.peer,
+          id: sentMessageId,
+          message: edition,
+          ...(sendParams.send_as && { send_as: sendParams.send_as })
+        });
+        console.log(`✏️ ${logPrefix} edited`);
+      } catch (err) {
+        console.error(`❌ Failed to edit ${logPrefix}:`, err);
+      }
+    }, parseInt(getConfigItem('TELEGRAM_EDIT_DELAY') || '10', 10) * 1000);
+  }
+
+  return sentMessageId;
+}
+
 /* -- GROUP POSTING -- */
-async function sendMessage(peer, groupid, message, target, prompt) {
+async function sendMessage(peer, groupid, message, edition, target, prompt) {
   try {  
     let inputPeer = getInputPeer(peer);
     
@@ -459,13 +499,13 @@ async function sendMessage(peer, groupid, message, target, prompt) {
     }
 
     // avoid replying to our messages    
-    if (params.reply_to_msg_id == targetMessage.id) {
+    if (targetMessage && params.reply_to_msg_id == targetMessage.id) {
       if (isOurMessage(targetMessage, sendAsPeer)) {
         throw new Error('Skip replying to our message.');       
       }                
     }  
 
-    await mtprotoCall('messages.sendMessage', params);
+    await sendAndMaybeEdit(params, edition, `message in ${groupid}`);
 
     messagesSent++;
     console.log(`✅ Message sent to ${groupid}`);
@@ -625,7 +665,7 @@ async function getDiscussionThread(inputPeer, discussionRootId) {
   return [...result.values()].sort((a, b) => a.id - b.id);
 }
 
-async function sendCommentToPost(channelPeer, channelGroupId, target, comment, prompt) {
+async function sendCommentToPost(channelPeer, channelGroupId, target, comment, edition, prompt) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
     const channelPostId = await getLastChannelPost(channelPeer);
@@ -736,8 +776,8 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, p
       } 
     }    
 
-    // 7️⃣ Відправляємо коментар
-    await mtprotoCall('messages.sendMessage', params);
+    // 7️⃣ Відправляємо коментар    
+    await sendAndMaybeEdit(params, edition, `comment in ${channelGroupId}`);
 
     messagesSent++;
     console.log(`✅ Comment sent (reply_to=${params.reply_to_msg_id}) in ${channelGroupId}`);
@@ -853,7 +893,7 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
   console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
 
-async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, prompt) {
+async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, edition, prompt) {
   const linkedChat = await getLinkedChatPeer(channelPeer);
 
   if (linkedChat.peer.username) {
@@ -887,7 +927,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
 
   let sendAsPeer = await getSendAsPeer();  
 
-  await mtprotoCall('messages.sendMessage', {
+  const sendParams = {
     peer: {
       _: 'inputPeerChannel',
       channel_id: linkedChat.peer.id,
@@ -897,7 +937,9 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     reply_to_msg_id: discussionRoot.id,
     random_id: BigInt(Date.now()).toString(),
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
-  });
+  };
+
+  await sendAndMaybeEdit(sendParams, edition, `comment on post ${postId}`);
 
   messagesSent++;
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
@@ -910,7 +952,7 @@ async function handleDebouncedPost(
   groupConfig,
   postId  
 ) {
-  const { groupid, comment, reaction, prompt } = groupConfig;
+  const { groupid, comment, edition, reaction, prompt } = groupConfig;
   
   const key = `${channelPeer.id}:${groupConfig.id}`;
   const lastSeen = lastSeenChannelPost.get(key);
@@ -927,6 +969,7 @@ async function handleDebouncedPost(
       groupid,
       postId,
       comment,
+      edition,
       prompt      
     );
   }
@@ -953,7 +996,7 @@ function scheduleDebouncedPost(
     clearTimeout(existing.timer);
   }
   
-  const delay = parseInt((getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || 10), 10) * 1000;
+  const delay = parseInt((getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || '10'), 10) * 1000;
   const timer = setTimeout(async () => {
     try {
       await handleDebouncedPost(
@@ -1015,7 +1058,7 @@ async function processGroups(requestCode) {
     while (getIsRunning()) {
       const data = await prepareGroups();
       for (const group of data) {        
-        const { groupid, comment, reaction, prompt, target } = group;
+        const { groupid, comment, edition, reaction, prompt, target } = group;
         console.log(`\nProcessing ${groupid}`);
 
         if (target == '^') continue;   
@@ -1024,10 +1067,10 @@ async function processGroups(requestCode) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment || prompt) await sendMessage(peer, groupid, comment, target, prompt);            
+          if (comment || prompt) await sendMessage(peer, groupid, comment, edition, target, prompt);            
           if (reaction) await reactToMessage(peer, groupid, reaction, target);                     
         } else if (type == 'channel') {          
-          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, prompt);                
+          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, edition, prompt);                
           if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction);                           
         }      
 
