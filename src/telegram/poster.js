@@ -562,7 +562,7 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
           return;
         }
 
-        if (!res.answer) {AndMaybeEdit
+        if (!res.answer) {
           console.log(`Skip sending to ${groupid} due to an empty answer`);
           return;
         }
