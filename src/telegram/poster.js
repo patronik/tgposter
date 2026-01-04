@@ -9,14 +9,14 @@ let SELF_USER_ID = null;
 let BIO_LOCK = false;
 let SAVED_BIO = null;
 
+let IS_RUNNING = false;
+
+let TOTAL_SENT = 0;
+
 const lastSeenChannelPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
 const linkedChatCache = new Map();
-
-let IS_RUNNING = false;
-
-let messagesSent = 0;
 
 function getIsRunning() {
   return IS_RUNNING;
@@ -27,7 +27,7 @@ function setIsRunning(value) {
 }
 
 function getMessagesSent() {
-  return messagesSent;
+  return TOTAL_SENT;
 }
 /* -- STATE END -- */
 
@@ -325,7 +325,7 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
     if (msg._ !== 'message') continue;
 
     try {
-      const res = await mtprotoCall('messages.getDiscussionMessage', {
+      await mtprotoCall('messages.getDiscussionMessage', {
         peer: getInputPeer(channelPeer),
         msg_id: msg.id,
       });
@@ -375,9 +375,7 @@ async function preloadDialogs() {
 }
 
 async function getCurrentBio() {
-  const res = await mtprotoCall('users.getFullUser', {
-    id: { _: 'inputUserSelf' }
-  });
+  const res = await mtprotoCall('users.getFullUser', {id: { _: 'inputUserSelf' }});
   return res.full_user?.about ?? '';
 }
 
@@ -447,7 +445,8 @@ async function prepareGroups() {
   return result;  
 }
 
-async function sendAndMaybeEdit(sendParams, edition, logPrefix = '') {
+async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '') {
+  // 1️⃣ Send message
   const result = await mtprotoCall('messages.sendMessage', sendParams);
 
   let sentMessageId;
@@ -468,6 +467,7 @@ async function sendAndMaybeEdit(sendParams, edition, logPrefix = '') {
     }
   }
 
+  // 2️⃣ Edit message
   if (edition && sentMessageId) {
     setTimeout(async () => {
       try {
@@ -483,8 +483,8 @@ async function sendAndMaybeEdit(sendParams, edition, logPrefix = '') {
       }
     }, parseInt(getConfigItem('TELEGRAM_EDIT_DELAY') || '10', 10) * 1000);
   }
-
-  /* ---- DELETE AFTER DELAY ---- */
+  
+  // 3️⃣ Delete message
   const deleteDelay = getConfigItem('TELEGRAM_DELETE_DELAY');
   if (deleteDelay && sentMessageId) {
     setTimeout(async () => {
@@ -559,7 +559,7 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
           return;
         }
 
-        if (!res.answer) {
+        if (!res.answer) {AndMaybeEdit
           console.log(`Skip sending to ${groupid} due to an empty answer`);
           return;
         }
@@ -584,11 +584,12 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
       }                
     }  
 
+    // process message
     await withTemporaryClearedBio(
-      () => sendAndMaybeEdit(params, edition, `message in ${groupid}`)
+      () => sendAndMaybeEditAndMaybeDelete(params, edition, `message in ${groupid}`)
     );
 
-    messagesSent++;
+    TOTAL_SENT++;
     console.log(`✅ Message sent to ${groupid}`);
   } catch (error) {
     console.error(`❌ Error sending to ${groupid}:`, error);
@@ -639,7 +640,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
 
     await mtprotoCall('messages.sendReaction', params);
 
-    messagesSent++;
+    TOTAL_SENT++;
     console.log(`✅ Reacted to message ${params.msg_id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
@@ -857,12 +858,12 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
       } 
     }    
 
-    // 7️⃣ Відправляємо коментар    
+    // 7️⃣ process message    
     await withTemporaryClearedBio(
-      () => sendAndMaybeEdit(params, edition, `comment in ${channelGroupId}`)
+      () => sendAndMaybeEditAndMaybeDelete(params, edition, `comment in ${channelGroupId}`)
     );
 
-    messagesSent++;
+    TOTAL_SENT++;
     console.log(`✅ Comment sent (reply_to=${params.reply_to_msg_id}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
@@ -952,7 +953,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', params);
 
-    messagesSent++;
+    TOTAL_SENT++;
     console.log(`✅ Reacted to comment ${params.msg_id} in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ Comment react error:', error);
@@ -972,7 +973,7 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   });
 
-  messagesSent++;
+  TOTAL_SENT++;
   console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
 
@@ -1022,11 +1023,12 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   };
 
+  // process message
   await withTemporaryClearedBio(
-    () => sendAndMaybeEdit(sendParams, edition, `comment in ${channelGroupId}`)
+    () => sendAndMaybeEditAndMaybeDelete(sendParams, edition, `comment in ${channelGroupId}`)
   );
 
-  messagesSent++;
+  TOTAL_SENT++;
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
 }
 
