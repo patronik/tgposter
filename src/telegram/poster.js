@@ -9,6 +9,8 @@ let SELF_USER_ID = null;
 let BIO_LOCK = false;
 let SAVED_BIO = null;
 
+let POLLING_LOCK = false;
+
 let IS_RUNNING = false;
 
 let TOTAL_SENT = 0;
@@ -331,6 +333,7 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
     limit: scanLimit,
   });
 
+
   for (const msg of history.messages || []) {
     if (msg._ !== 'message') continue;
 
@@ -340,10 +343,21 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
         msg_id: msg.id,
       });
 
-      // If this succeeds → discussion exists
+      
+      // Якщо дискусія існує → це наш пост
+
+      const now = Math.floor(Date.now() / 1000); 
+      const elapsedSec = now - msg.date;
+      const elapsedMin = Math.floor(elapsedSec / 60);
+      const elapsedHours = Math.floor(elapsedSec / 3600);
+
+      console.log(
+        `📰 Found post ID ${msg.id} created ${elapsedSec}s (~${elapsedMin}m, ~${elapsedHours}h) ago`
+      );
+
       return msg.id;
     } catch (e) {
-      // Expected for posts without discussion
+      // Очікувано для постів без дискусії
       continue;
     }
   }
@@ -372,16 +386,6 @@ async function findDiscussionRoot(channelPeer, channelPostId) {
   }
 
   return root;
-}
-
-async function preloadDialogs() {
-  await mtprotoCall('messages.getDialogs', {
-    offset_date: 0,
-    offset_id: 0,
-    offset_peer: { _: 'inputPeerEmpty' },
-    limit: 200,
-    hash: 0
-  });  
 }
 
 async function getCurrentBio() {
@@ -1112,45 +1116,44 @@ function scheduleDebouncedPost(
   channelDebounce.set(key, { postId, timer });  
 }
 
+async function pollChannelsForNewPosts() {
+  if (POLLING_LOCK) return;
+  POLLING_LOCK = true;
+
+  try {
+    const data = await prepareGroups();
+
+    for (const group of data) {
+      if (group.target !== '^') continue;
+
+      const { groupid } = group;
+      const { peer } = await getPeerCached(groupid);
+
+      if (peer._ !== 'channel') continue;
+
+      const postId = await getLastChannelPost(peer);
+      scheduleDebouncedPost(peer, group, postId);
+    }
+  } catch (err) {
+    console.error('❌ Polling error:', err);
+  } finally {
+    POLLING_LOCK = false;
+  }
+}
+
 async function processGroups(requestCode) {
+  let pollingTimer;
   try {        
     await authenticate(requestCode);  
     await initSelf();  
-    await preloadDialogs();
     
     // cache warmup
-    await prepareGroups();
+    await prepareGroups();    
 
-    mtproto.updates.on('updates', async ({ updates }) => {
+    pollingTimer = setInterval(() => {
       if (!getIsRunning()) return;
-    
-      for (const upd of updates) {
-        if (upd._ !== 'updateNewChannelMessage') continue;
-    
-        const msg = upd.message;
-        if (!isChannelPost(msg)) continue;
-    
-        const channelId = msg.peer_id?.channel_id;
-        if (!channelId) continue;        
-                
-        const data = await prepareGroups();
-        for (const group of data) {
-          if (group.target !== '^') continue;
-    
-          const { groupid } = group;
-          const { peer } = await getPeerCached(groupid);
-    
-          if (peer._ !== 'channel') continue;
-          if (peer.id !== channelId) continue;          
-    
-          scheduleDebouncedPost(peer, group, msg.id);
-        }
-      }
-    });
-
-    // workarond to start getting updates
-    setInterval(async () => { await mtprotoCall('updates.getState'); }, 30 * 1000);
-    setInterval(async () => { await preloadDialogs(); }, 60 * 15 * 1000);
+      pollChannelsForNewPosts();
+    }, (parseInt(getConfigItem('TELEGRAM_CHANNEL_POLL_INTERVAL') || '20', 10) * 1000));
     
     while (getIsRunning()) {
       const data = await prepareGroups();
@@ -1181,6 +1184,7 @@ async function processGroups(requestCode) {
     return;
   } finally {
     setIsRunning(false);
+    clearInterval(pollingTimer);
     lastSeenChannelPost.clear();
     channelDebounce.clear();
     console.log(`exiting`);
