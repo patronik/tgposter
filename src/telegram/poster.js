@@ -468,7 +468,8 @@ async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '
   }
 
   // 2️⃣ Edit message
-  if (edition && sentMessageId) {
+  const editDelay = getConfigItem('TELEGRAM_EDIT_DELAY');
+  if (editDelay && edition && sentMessageId) {
     setTimeout(async () => {
       try {
         await mtprotoCall('messages.editMessage', {
@@ -481,7 +482,7 @@ async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '
       } catch (err) {
         console.error(`❌ Failed to edit ${logPrefix}:`, err);
       }
-    }, parseInt(getConfigItem('TELEGRAM_EDIT_DELAY') || '10', 10) * 1000);
+    }, parseInt(editDelay, 10) * 1000);
   }
   
   // 3️⃣ Delete message
