@@ -388,7 +388,7 @@ async function restoreBio(bio) {
   await mtprotoCall('account.updateProfile', { about: bio });
 }
 
-async function withTemporaryClearedBio(action, logPrefix = '') {
+async function withTemporaryClearedBio(action) {
   const restoreBioDelay = getConfigItem('TELEGRAM_RESTORE_BIO_DELAY');
   if (!restoreBioDelay) {
     return await action();
@@ -407,7 +407,7 @@ async function withTemporaryClearedBio(action, logPrefix = '') {
 
     if (SAVED_BIO) {
       await clearBio();
-      console.log(`🧹 Bio cleared before ${logPrefix}`);
+      console.log(`🧹 Bio cleared`);
     }
 
     const result = await action();
@@ -416,7 +416,7 @@ async function withTemporaryClearedBio(action, logPrefix = '') {
       setTimeout(async () => {
         try {
           await restoreBio(SAVED_BIO);
-          console.log(`🧬 Bio restored after ${logPrefix}`);
+          console.log(`🧬 Bio restored`);
         } catch (err) {
           console.error('❌ Failed to restore bio:', err);
         } finally {
@@ -587,8 +587,7 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
     }  
 
     await withTemporaryClearedBio(
-      () => sendAndMaybeEdit(params, edition, `message in ${groupid}`),
-      `message in ${groupid}`
+      () => sendAndMaybeEdit(params, edition, `message in ${groupid}`)
     );
 
     messagesSent++;
@@ -862,8 +861,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
 
     // 7️⃣ Відправляємо коментар    
     await withTemporaryClearedBio(
-      () => sendAndMaybeEdit(params, edition, `comment in ${channelGroupId}`),
-      `comment in ${channelGroupId}`
+      () => sendAndMaybeEdit(params, edition, `comment in ${channelGroupId}`)
     );
 
     messagesSent++;
@@ -1027,8 +1025,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
   };
 
   await withTemporaryClearedBio(
-    () => sendAndMaybeEdit(sendParams, edition, `comment in ${channelGroupId}`),
-    `comment in ${channelGroupId}`
+    () => sendAndMaybeEdit(sendParams, edition, `comment in ${channelGroupId}`)
   );
 
   messagesSent++;
