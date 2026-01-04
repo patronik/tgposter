@@ -341,9 +341,7 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
       await mtprotoCall('messages.getDiscussionMessage', {
         peer: getInputPeer(channelPeer),
         msg_id: msg.id,
-      });
-
-      
+      });    
       // Якщо дискусія існує → це наш пост
       return { channelPostId: msg.id, postDate: msg.date };
     } catch (e) {
