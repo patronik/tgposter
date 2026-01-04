@@ -6,6 +6,9 @@ const { queryLLM, LLMEnabled } = require('../ai');
 /* -- STATE -- */
 let SELF_USER_ID = null;
 
+let BIO_LOCK = false;
+let SAVED_BIO = null;
+
 const lastSeenChannelPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
@@ -371,6 +374,66 @@ async function preloadDialogs() {
   });  
 }
 
+async function getCurrentBio() {
+  const profile = await mtprotoCall('account.getProfile');
+  return profile.about || '';
+}
+
+async function clearBio() {
+  await mtprotoCall('account.updateProfile', { about: '' });
+}
+
+async function restoreBio(bio) {
+  await mtprotoCall('account.updateProfile', { about: bio });
+}
+
+async function withTemporaryClearedBio(action, logPrefix = '') {
+  const restoreBioDelay = getConfigItem('TELEGRAM_RESTORE_BIO_DELAY');
+  if (!restoreBioDelay) {
+    return await action();
+  }
+
+  const restoreDelay = parseInt(restoreBioDelay, 10);
+
+  if (BIO_LOCK) {
+    return await action();
+  }
+
+  BIO_LOCK = true;
+
+  try {
+    SAVED_BIO = await getCurrentBio();
+
+    if (SAVED_BIO) {
+      await clearBio();
+      console.log(`🧹 Bio cleared before ${logPrefix}`);
+    }
+
+    const result = await action();
+
+    if (SAVED_BIO) {
+      setTimeout(async () => {
+        try {
+          await restoreBio(SAVED_BIO);
+          console.log(`🧬 Bio restored after ${logPrefix}`);
+        } catch (err) {
+          console.error('❌ Failed to restore bio:', err);
+        } finally {
+          BIO_LOCK = false;
+          SAVED_BIO = null;
+        }
+      }, restoreDelay * 1000);
+    } else {
+      BIO_LOCK = false;
+    }
+
+    return result;
+  } catch (err) {
+    BIO_LOCK = false;
+    throw err;
+  }
+}
+
 async function prepareGroups() {
   const result = [];
   const data = readData();    
@@ -522,7 +585,10 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
       }                
     }  
 
-    await sendAndMaybeEdit(params, edition, `message in ${groupid}`);
+    await withTemporaryClearedBio(
+      () => sendAndMaybeEdit(params, edition, `message in ${groupid}`),
+      `message in ${groupid}`
+    );
 
     messagesSent++;
     console.log(`✅ Message sent to ${groupid}`);
@@ -794,7 +860,10 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
     }    
 
     // 7️⃣ Відправляємо коментар    
-    await sendAndMaybeEdit(params, edition, `comment in ${channelGroupId}`);
+    await withTemporaryClearedBio(
+      () => sendAndMaybeEdit(params, edition, `comment in ${channelGroupId}`),
+      `comment in ${channelGroupId}`
+    );
 
     messagesSent++;
     console.log(`✅ Comment sent (reply_to=${params.reply_to_msg_id}) in ${channelGroupId}`);
@@ -956,7 +1025,10 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   };
 
-  await sendAndMaybeEdit(sendParams, edition, `comment on post ${postId}`);
+  await withTemporaryClearedBio(
+    () => sendAndMaybeEdit(sendParams, edition, `comment in ${channelGroupId}`),
+    `comment in ${channelGroupId}`
+  );
 
   messagesSent++;
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
