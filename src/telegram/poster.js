@@ -71,6 +71,16 @@ function getInputPeer(peer) {
   return inputPeer;
 }
 
+function isChannelPost(m) {          
+  return (      
+    m?._ === 'message' &&
+    (m.message || m.media) &&
+    m.post === true &&
+    m.peer_id?._ === 'peerChannel' &&
+    !m.reply_to
+  );
+}
+
 function isOurMessage(msg, sendAsPeer) {
   if (!msg?.from_id) return false;
 
@@ -1118,11 +1128,10 @@ async function processGroups(requestCode) {
         if (upd._ !== 'updateNewChannelMessage') continue;
     
         const msg = upd.message;
-        if (!msg || msg._ !== 'message') continue;
-        if (!msg.message && !msg.media) continue;
+        if (!isChannelPost(msg)) continue;
     
         const channelId = msg.peer_id?.channel_id;
-        if (!channelId) continue;
+        if (!channelId) continue;        
                 
         const data = await prepareGroups();
         for (const group of data) {
