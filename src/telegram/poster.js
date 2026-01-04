@@ -345,17 +345,7 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
 
       
       // Якщо дискусія існує → це наш пост
-
-      const now = Math.floor(Date.now() / 1000); 
-      const elapsedSec = now - msg.date;
-      const elapsedMin = Math.floor(elapsedSec / 60);
-      const elapsedHours = Math.floor(elapsedSec / 3600);
-
-      console.log(
-        `📰 Found post ID ${msg.id} created ${elapsedSec}s (~${elapsedMin}m, ~${elapsedHours}h) ago`
-      );
-
-      return msg.id;
+      return { channelPostId: msg.id, postDate: msg.date };
     } catch (e) {
       // Очікувано для постів без дискусії
       continue;
@@ -765,7 +755,7 @@ async function getDiscussionThread(inputPeer, discussionRootId) {
 async function sendCommentToPost(channelPeer, channelGroupId, target, comment, edition, prompt) {
   try {
     // 1️⃣ Отримуємо ID останнього поста каналу
-    const channelPostId = await getLastChannelPost(channelPeer);
+    const { channelPostId } = await getLastChannelPost(channelPeer);
     const discussionRoot = await findDiscussionRoot(channelPeer, channelPostId);
     console.log(`📰 Last channel post ID: ${channelPostId}`);
     console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
@@ -898,7 +888,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     }
 
     /** 3️⃣ Отримуємо ОСТАННІЙ ПОСТ каналу */
-    const channelPostId = await getLastChannelPost(channelPeer);    
+    const { channelPostId } = await getLastChannelPost(channelPeer);    
     console.log(`📰 Last channel post ID: ${channelPostId}`);
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
@@ -1055,13 +1045,6 @@ async function handleDebouncedPost(
   postId  
 ) {
   const { groupid, comment, edition, reaction, prompt } = groupConfig;
-  
-  const key = `${channelPeer.id}:${groupConfig.id}`;
-  const lastSeen = lastSeenChannelPost.get(key);
-
-  if (lastSeen && postId <= lastSeen) return;
-
-  lastSeenChannelPost.set(key, postId);
 
   console.log(`⏳ Debounced post ${postId} in ${groupid}`);
 
@@ -1089,16 +1072,26 @@ async function handleDebouncedPost(
 function scheduleDebouncedPost(
   channelPeer,
   groupConfig,
-  postId  
+  postId,
+  postDate  
 ) {
+
   const key = `${channelPeer.id}:${groupConfig.id}`;
+
+  const lastSeen = lastSeenChannelPost.get(key);  
+  if (lastSeen && postId <= lastSeen) return;    
+  lastSeenChannelPost.set(key, postId);  
 
   const existing = channelDebounce.get(key);
   if (existing?.timer) {
     clearTimeout(existing.timer);
   }
-  
-  const delay = parseInt((getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || '10'), 10) * 1000;
+
+  const now = Math.floor(Date.now() / 1000); 
+  const elapsedSec = now - postDate;
+  const elapsedMin = Math.floor(elapsedSec / 60);
+  const elapsedHours = Math.floor(elapsedSec / 3600);
+
   const timer = setTimeout(async () => {
     try {
       await handleDebouncedPost(
@@ -1111,9 +1104,13 @@ function scheduleDebouncedPost(
     } finally {
       channelDebounce.delete(key);
     }
-  }, delay);
+  }, (parseInt((getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || '10'), 10) * 1000));
 
-  channelDebounce.set(key, { postId, timer });  
+  channelDebounce.set(key, { postId, timer });   
+  
+  console.log(
+    `📰 Scheduled reply to post ID ${msg.id} in ${groupConfig.groupid} created ${elapsedSec}s (~${elapsedMin}m, ~${elapsedHours}h) ago`
+  );  
 }
 
 async function pollChannelsForNewPosts() {
@@ -1131,8 +1128,8 @@ async function pollChannelsForNewPosts() {
 
       if (peer._ !== 'channel') continue;
 
-      const postId = await getLastChannelPost(peer);
-      scheduleDebouncedPost(peer, group, postId);
+      const { channelPostId, postDate } = await getLastChannelPost(peer);
+      scheduleDebouncedPost(peer, group, channelPostId, postDate);      
     }
   } catch (err) {
     console.error('❌ Polling error:', err);
