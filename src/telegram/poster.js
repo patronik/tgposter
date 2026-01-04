@@ -389,12 +389,10 @@ async function restoreBio(bio) {
 }
 
 async function withTemporaryClearedBio(action) {
-  const restoreBioDelay = getConfigItem('TELEGRAM_RESTORE_BIO_DELAY');
-  if (!restoreBioDelay) {
+  const restoreDelay = getConfigItem('TELEGRAM_RESTORE_BIO_DELAY');
+  if (!restoreDelay) {
     return await action();
   }
-
-  const restoreDelay = parseInt(restoreBioDelay, 10);
 
   if (BIO_LOCK) {
     return await action();
@@ -423,7 +421,7 @@ async function withTemporaryClearedBio(action) {
           BIO_LOCK = false;
           SAVED_BIO = null;
         }
-      }, restoreDelay * 1000);
+      }, parseInt(restoreDelay, 10) * 1000);
     } else {
       BIO_LOCK = false;
     }
