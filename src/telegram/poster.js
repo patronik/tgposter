@@ -375,14 +375,15 @@ async function preloadDialogs() {
 }
 
 async function getCurrentBio() {
-  const profile = await mtprotoCall('account.getProfile');
-  return profile.about || '';
+  const res = await mtprotoCall('users.getFullUser', {
+    id: { _: 'inputUserSelf' }
+  });
+  return res.full_user?.about ?? '';
 }
 
 async function clearBio() {
-  await mtprotoCall('account.updateProfile', { about: '' });
+  await mtprotoCall('account.updateProfile', { about: 'What a day!' });
 }
-
 async function restoreBio(bio) {
   await mtprotoCall('account.updateProfile', { about: bio });
 }
