@@ -1109,7 +1109,7 @@ function scheduleDebouncedPost(
   channelDebounce.set(key, { postId, timer });   
   
   console.log(
-    `📰 Scheduled reply to post ID ${msg.id} in ${groupConfig.groupid} created ${elapsedSec}s (~${elapsedMin}m, ~${elapsedHours}h) ago`
+    `📰 Scheduled reply to post ID ${postId} in ${groupConfig.groupid} created ${elapsedSec}s (~${elapsedMin}m, ~${elapsedHours}h) ago`
   );  
 }
 
