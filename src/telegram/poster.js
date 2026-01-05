@@ -28,7 +28,7 @@ function setIsRunning(value) {
   IS_RUNNING = value;
 }
 
-function getMessagesSent() {
+function getTotalSent() {
   return TOTAL_SENT;
 }
 /* -- STATE END -- */
@@ -1190,6 +1190,6 @@ async function processGroups(requestCode) {
 }
 
 module.exports.processGroups = processGroups;
-module.exports.getMessagesSent = getMessagesSent;
+module.exports.getTotalSent = getTotalSent;
 module.exports.getIsRunning = getIsRunning;
 module.exports.setIsRunning = setIsRunning;

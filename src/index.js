@@ -61,7 +61,7 @@ ipcMain.handle('open-devtools', () => {
   }
 });
 
-ipcMain.handle('get-messages-sent', () => {
+ipcMain.handle('get-total-sent', () => {
   return getTotalSent();
 });
 
