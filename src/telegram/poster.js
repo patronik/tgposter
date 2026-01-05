@@ -98,6 +98,14 @@ async function initSelf() {
   }
 }
 
+function getSecondsDifferenceToNow(targetDate) {
+  const now = Date.now(); 
+  const targetTime = targetDate.getTime(); 
+  const differenceInMilliseconds = now - targetTime;  
+  const differenceInSeconds = Math.round(differenceInMilliseconds / 1000);
+  return differenceInSeconds;
+}
+
 function extractInviteHash(linkOrHash) {
   const match = linkOrHash.match(/(?:t\.me\/(?:joinchat\/|\+))([\w-]+)/);
   return match ? match[1] : null;
@@ -1111,8 +1119,15 @@ async function pollChannelsForNewPosts() {
       const { peer } = await getPeerCached(groupid);
 
       if (peer._ !== 'channel') continue;
-
+      
       const { channelPostId, postDate } = await getLastChannelPost(peer);
+
+      const maxPostAge = parseInt(getConfigItem('TELEGRAM_NEW_POST_MAX_AGE') || '30', 10);
+      const lastPostAge = getSecondsDifferenceToNow(postDate);
+      if (lastPostAge > maxPostAge) {
+        return;
+      }
+
       scheduleDebouncedPost(peer, group, channelPostId, postDate);      
     }
   } catch (err) {
