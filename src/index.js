@@ -1,6 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { readData, writeData, readConfig, writeConfig, getConfigItem, getReqKeys } = require('./config');
-const { processGroups, getIsRunning, setIsRunning, getMessagesSent } = require('./telegram/poster');
+const { processGroups, getIsRunning, setIsRunning, getTotalSent } = require('./telegram/poster');
 const fs = require('fs');
 const path = require('node:path');
 
@@ -62,7 +62,7 @@ ipcMain.handle('open-devtools', () => {
 });
 
 ipcMain.handle('get-messages-sent', () => {
-  return getMessagesSent();
+  return getTotalSent();
 });
 
 ipcMain.handle('get-items', () => {

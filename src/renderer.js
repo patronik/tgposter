@@ -22,7 +22,7 @@ setInterval(
 
 setInterval(
   async () => {
-    const messagesSent = await window.api.getMessagesSent();  
+    const messagesSent = await window.api.getTotalSent();  
     document.getElementById('messages_sent').innerText = messagesSent;
   },
   500

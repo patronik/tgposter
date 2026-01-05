@@ -36,7 +36,8 @@ function getMessagesSent() {
 async function mtprotoCall(method, data, retry = 0) {
   try {
       const result = await mtproto.call(method, data);
-      await sleep(parseInt(getConfigItem('TELEGRAM_API_DELAY'), 10) * 1000);
+      const apiDelay = getConfigItem('TELEGRAM_API_DELAY') || '10';
+      await sleep(parseInt(apiDelay, 10) * 1000);
       return result;
     } catch (err) {     
     const errorMessage = err.error_message || err.message;
@@ -1090,6 +1091,7 @@ function scheduleDebouncedPost(
   const elapsedMin = Math.floor(elapsedSec / 60);
   const elapsedHours = Math.floor(elapsedSec / 3600);
 
+  const postDebounce = getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || '10';
   const timer = setTimeout(async () => {
     try {
       await handleDebouncedPost(
@@ -1102,7 +1104,7 @@ function scheduleDebouncedPost(
     } finally {
       channelDebounce.delete(key);
     }
-  }, (parseInt((getConfigItem('TELEGRAM_NEW_POST_DEBOUNCE') || '10'), 10) * 1000));
+  }, parseInt(postDebounce, 10) * 1000);
 
   channelDebounce.set(key, { postId, timer });   
   
@@ -1136,8 +1138,7 @@ async function pollChannelsForNewPosts() {
   }
 }
 
-async function processGroups(requestCode) {
-  let pollingTimer;
+async function processGroups(requestCode) {  
   try {        
     await authenticate(requestCode);  
     await initSelf();  
@@ -1145,10 +1146,11 @@ async function processGroups(requestCode) {
     // cache warmup
     await prepareGroups();    
 
-    pollingTimer = setInterval(() => {
+    const pollIterval = getConfigItem('TELEGRAM_POLL_INTERVAL') || '20';
+    const pollingTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollChannelsForNewPosts();
-    }, (parseInt(getConfigItem('TELEGRAM_CHANNEL_POLL_INTERVAL') || '20', 10) * 1000));
+    }, parseInt(pollIterval, 10) * 1000);
     
     while (getIsRunning()) {
       const data = await prepareGroups();
@@ -1172,7 +1174,8 @@ async function processGroups(requestCode) {
       }
 
       console.log(`Go to sleep`);
-      await sleep(parseInt(getConfigItem('TELEGRAM_ITERATION_DELAY'), 10) * 1000);
+      const iterationDelay = getConfigItem('TELEGRAM_ITERATION_DELAY') || '60';
+      await sleep(parseInt(iterationDelay, 10) * 1000);
     }  
   } catch (err) {
     console.log(err);

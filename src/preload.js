@@ -23,6 +23,6 @@ contextBridge.exposeInMainWorld('api', {
   getIsRunning: () => ipcRenderer.invoke('get-is-running'),
   requestRestart: (reason) => ipcRenderer.invoke('request-restart', reason),
   // info
-  getMessagesSent: () => ipcRenderer.invoke('get-messages-sent'),
+  getTotalSent: () => ipcRenderer.invoke('get-total-sent'),
   openDevTools: () => ipcRenderer.invoke('open-devtools')
 });
