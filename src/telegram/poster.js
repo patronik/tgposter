@@ -15,7 +15,7 @@ let IS_RUNNING = false;
 
 let TOTAL_SENT = 0;
 
-const lastSeenChannelPost = new Map();
+const lastSeenPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
 const linkedChatCache = new Map();
@@ -74,16 +74,6 @@ function getInputPeer(peer) {
   return inputPeer;
 }
 
-function isChannelPost(m) {          
-  return (      
-    m?._ === 'message' &&
-    (m.message || m.media) &&
-    m.post === true &&
-    m.peer_id?._ === 'peerChannel' &&
-    !m.reply_to
-  );
-}
-
 function isOurMessage(msg, sendAsPeer) {
   if (!msg?.from_id) return false;
 
@@ -98,16 +88,12 @@ function isOurMessage(msg, sendAsPeer) {
   return false;
 }
 
-async function getSelfUserId() {
-  const res = await mtprotoCall('users.getFullUser', {
-    id: { _: 'inputUserSelf' }
-  });
-  return res.users[0].id;
-}
-
 async function initSelf() {
   if (!SELF_USER_ID) {
-    SELF_USER_ID = await getSelfUserId();
+    const res = await mtprotoCall('users.getFullUser', {
+      id: { _: 'inputUserSelf' }
+    });
+    SELF_USER_ID = res.users[0].id;
     console.log(`👤 SELF_USER_ID = ${SELF_USER_ID}`);
   }
 }
@@ -194,7 +180,7 @@ async function handlePrompt(prompt, input) {
   }; 
     
   const response = await queryLLM(`${prompt}\nINPUT:\n${input}`);
-  console.log(`LLM response: "${response}"`);
+  console.log(`LLM: ${response}`);
 
   let jsonData;
   try {
@@ -434,18 +420,16 @@ async function withTemporaryClearedBio(action) {
   }
 }
 
-async function prepareGroups() {
-  const result = [];
-  const data = readData();    
+async function prepareGroups() {  
+  const data = readData();
   for (const group of data) {   
     try {
-      await getPeerCached(group.groupid);
-      result.push(group);
+      await getPeerCached(group.groupid);      
     } catch (err) {
-      console.error(`❌ Failed joining "${group.groupid}"`);
+      console.error(`❌ Failed preparing "${group.groupid}"`);
     }    
   }
-  return result;  
+  return data;  
 }
 
 async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '') {
@@ -1077,9 +1061,9 @@ function scheduleDebouncedPost(
 
   const key = `${channelPeer.id}:${groupConfig.id}`;
 
-  const lastSeen = lastSeenChannelPost.get(key);  
+  const lastSeen = lastSeenPost.get(key);  
   if (lastSeen && postId <= lastSeen) return;    
-  lastSeenChannelPost.set(key, postId);  
+  lastSeenPost.set(key, postId);  
 
   const existing = channelDebounce.get(key);
   if (existing?.timer) {
@@ -1147,7 +1131,7 @@ async function processGroups(requestCode) {
     await prepareGroups();    
 
     const pollIterval = getConfigItem('TELEGRAM_POLL_INTERVAL') || '20';
-    const pollingTimer = setInterval(() => {
+    const pollTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollChannelsForNewPosts();
     }, parseInt(pollIterval, 10) * 1000);
@@ -1156,7 +1140,7 @@ async function processGroups(requestCode) {
       const data = await prepareGroups();
       for (const group of data) {        
         const { groupid, comment, edition, reaction, prompt, target } = group;
-        console.log(`\nProcessing ${groupid}`);
+        console.log(`\n⚙️ Processing ${groupid}`);
 
         if (target == '^') continue;   
 
@@ -1173,7 +1157,7 @@ async function processGroups(requestCode) {
 
       }
 
-      console.log(`Go to sleep`);
+      console.log(`🛌 Go to sleep`);
       const iterationDelay = getConfigItem('TELEGRAM_ITERATION_DELAY') || '60';
       await sleep(parseInt(iterationDelay, 10) * 1000);
     }  
@@ -1182,8 +1166,8 @@ async function processGroups(requestCode) {
     return;
   } finally {
     setIsRunning(false);
-    clearInterval(pollingTimer);
-    lastSeenChannelPost.clear();
+    clearInterval(pollTimer);
+    lastSeenPost.clear();
     channelDebounce.clear();
     console.log(`exiting`);
   }    
