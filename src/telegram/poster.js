@@ -1172,12 +1172,14 @@ async function pollPrivateMessages() {
 
       const userId = dialog.peer.user_id;
 
+      const inputPeer = { 
+        _: 'inputPeerUser', 
+        user_id: userId, 
+        access_hash: dialogs.users.find(u => u.id === userId)?.access_hash
+      };
+      
       const history = await mtprotoCall('messages.getHistory', {
-        peer: { 
-          _: 'inputPeerUser', 
-          user_id: userId, 
-          access_hash: dialogs.users.find(u => u.id === userId)?.access_hash
-        },
+        peer: inputPeer,
         limit: 1
       });
 
@@ -1192,11 +1194,7 @@ async function pollPrivateMessages() {
       console.log(`💬 PM from ${userId}: ${msg.message}`);
 
       await mtprotoCall('messages.sendMessage', {
-        peer: { 
-          _: 'inputPeerUser', 
-          user_id: userId, 
-          access_hash: dialogs.users.find(u => u.id === userId)?.access_hash 
-        },
+        peer: inputPeer,
         message: replyText,
         random_id: BigInt(Date.now()).toString()
       });
