@@ -1216,7 +1216,7 @@ async function processGroups(requestCode) {
     await authenticate(requestCode);  
     await initSelf();
     
-    const pmInterval = getConfigItem('TELEGRAM_PM_POLL_INTERVAL') || '15';
+    const pmInterval = getConfigItem('TELEGRAM_PM_POLL_INTERVAL') || '600';
     pmTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollPrivateMessages();
