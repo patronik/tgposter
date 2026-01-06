@@ -98,12 +98,10 @@ async function initSelf() {
   }
 }
 
-function getSecondsDifferenceToNow(targetDate) {
-  const now = Date.now(); 
-  const targetTime = targetDate.getTime(); 
-  const differenceInMilliseconds = now - targetTime;  
-  const differenceInSeconds = Math.round(differenceInMilliseconds / 1000);
-  return differenceInSeconds;
+function getSecondsDifferenceToNow(postTime) {
+  const now = Math.floor(Date.now() / 1000); 
+  const elapsedSeconds = now - postTime;  
+  return elapsedSeconds;
 }
 
 function extractInviteHash(linkOrHash) {
