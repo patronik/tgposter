@@ -1125,7 +1125,7 @@ async function pollChannelsForNewPosts() {
       const maxPostAge = parseInt(getConfigItem('TELEGRAM_NEW_POST_MAX_AGE') || '30', 10);
       const lastPostAge = getSecondsDifferenceToNow(postDate);
       if (lastPostAge > maxPostAge) {
-        return;
+        continue;
       }
 
       scheduleDebouncedPost(peer, group, channelPostId, postDate);      
