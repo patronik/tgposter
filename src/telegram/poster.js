@@ -1213,8 +1213,11 @@ async function processGroups(requestCode) {
   try {        
     await authenticate(requestCode);  
     await initSelf();
+
+    // cache warmup
+    await prepareGroups();  
     
-    const pmInterval = getConfigItem('TELEGRAM_PM_POLL_INTERVAL') || '600';
+    const pmInterval = getConfigItem('TELEGRAM_PM_POLL_INTERVAL') || '30';
     pmTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollPrivateMessages();
@@ -1224,10 +1227,7 @@ async function processGroups(requestCode) {
     pollTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollChannelsForNewPosts();
-    }, parseInt(pollIterval, 10) * 1000);
-
-    // cache warmup
-    await prepareGroups();    
+    }, parseInt(pollIterval, 10) * 1000);  
     
     while (getIsRunning()) {
       const data = await prepareGroups();
