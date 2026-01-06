@@ -21,7 +21,7 @@ const lastSeenPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
 const linkedChatCache = new Map();
-const lastSeenPM = new Map();
+const processedPMs = new Map();
 
 let pmTimer = null;
 let pollTimer = null;
@@ -98,8 +98,6 @@ function isPrivateMessage(msg) {
   return (
     msg?._ === 'message' &&
     msg.peer_id?._ === 'peerUser' &&
-    msg.from_id?.user_id &&
-    msg.from_id.user_id !== SELF_USER_ID &&
     msg.message
   );
 }
@@ -1171,6 +1169,8 @@ async function pollPrivateMessages() {
       if (dialog.peer?._ !== 'peerUser') continue;
 
       const userId = dialog.peer.user_id;
+      
+      if (processedPMs.has(userId)) continue;      
 
       const inputPeer = { 
         _: 'inputPeerUser', 
@@ -1186,11 +1186,6 @@ async function pollPrivateMessages() {
       const msg = history.messages?.[0];
       if (!isPrivateMessage(msg)) continue;
 
-      const lastSeen = lastSeenPM.get(userId);
-      if (lastSeen && msg.id <= lastSeen) continue;
-
-      lastSeenPM.set(userId, msg.id);
-
       console.log(`💬 PM from ${userId}: ${msg.message}`);
 
       await mtprotoCall('messages.sendMessage', {
@@ -1198,6 +1193,8 @@ async function pollPrivateMessages() {
         message: replyText,
         random_id: BigInt(Date.now()).toString()
       });
+
+      processedPMs.set(userId, true);
 
       TOTAL_SENT++;
       console.log(`✅ Auto-replied to ${userId}`);
@@ -1261,7 +1258,7 @@ async function processGroups(requestCode) {
     setIsRunning(false);
     clearInterval(pmTimer);
     clearInterval(pollTimer);    
-    lastSeenPM.clear();
+    processedPMs.clear();
     lastSeenPost.clear();
     channelDebounce.clear();
     console.log(`exiting`);
