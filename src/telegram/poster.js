@@ -9,7 +9,9 @@ let SELF_USER_ID = null;
 let BIO_LOCK = false;
 let SAVED_BIO = null;
 
-let POLLING_LOCK = false;
+let CH_POLLING_LOCK = false;
+
+let PM_POLLING_LOCK = false;
 
 let IS_RUNNING = false;
 
@@ -19,6 +21,10 @@ const lastSeenPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
 const linkedChatCache = new Map();
+const lastSeenPM = new Map();
+
+let pmTimer = null;
+let pollTimer = null;
 
 function getIsRunning() {
   return IS_RUNNING;
@@ -86,6 +92,16 @@ function isOurMessage(msg, sendAsPeer) {
   }
 
   return false;
+}
+
+function isPrivateMessage(msg) {
+  return (
+    msg?._ === 'message' &&
+    msg.peer_id?._ === 'peerUser' &&
+    msg.from_id?.user_id &&
+    msg.from_id.user_id !== SELF_USER_ID &&
+    msg.message
+  );
 }
 
 async function initSelf() {
@@ -1104,8 +1120,8 @@ function scheduleDebouncedPost(
 }
 
 async function pollChannelsForNewPosts() {
-  if (POLLING_LOCK) return;
-  POLLING_LOCK = true;
+  if (CH_POLLING_LOCK) return;
+  CH_POLLING_LOCK = true;
 
   try {
     const data = await prepareGroups();
@@ -1131,23 +1147,89 @@ async function pollChannelsForNewPosts() {
   } catch (err) {
     console.error('❌ Polling error:', err);
   } finally {
-    POLLING_LOCK = false;
+    CH_POLLING_LOCK = false;
+  }
+}
+
+async function pollPrivateMessages() {
+  if (PM_POLLING_LOCK) return;
+  PM_POLLING_LOCK = true;
+
+  try {
+    const replyText = getConfigItem('TELEGRAM_PM_AUTOREPLY_TEXT');
+    if (!replyText) return;
+
+    const dialogs = await mtprotoCall('messages.getDialogs', {
+      offset_date: 0,
+      offset_id: 0,
+      offset_peer: { _: 'inputPeerEmpty' },
+      limit: 20,
+      hash: 0
+    });
+
+    for (const dialog of dialogs.dialogs || []) {
+      if (dialog.peer?._ !== 'peerUser') continue;
+
+      const userId = dialog.peer.user_id;
+
+      const history = await mtprotoCall('messages.getHistory', {
+        peer: { 
+          _: 'inputPeerUser', 
+          user_id: userId, 
+          access_hash: dialogs.users.find(u => u.id === userId)?.access_hash
+        },
+        limit: 1
+      });
+
+      const msg = history.messages?.[0];
+      if (!isPrivateMessage(msg)) continue;
+
+      const lastSeen = lastSeenPM.get(userId);
+      if (lastSeen && msg.id <= lastSeen) continue;
+
+      lastSeenPM.set(userId, msg.id);
+
+      console.log(`💬 PM from ${userId}: ${msg.message}`);
+
+      await mtprotoCall('messages.sendMessage', {
+        peer: { 
+          _: 'inputPeerUser', 
+          user_id: userId, 
+          access_hash: dialogs.users.find(u => u.id === userId)?.access_hash 
+        },
+        message: replyText,
+        random_id: BigInt(Date.now()).toString()
+      });
+
+      TOTAL_SENT++;
+      console.log(`✅ Auto-replied to ${userId}`);
+    }
+  } catch (err) {
+    console.error('❌ PM polling error:', err);
+  } finally {
+    PM_POLLING_LOCK = false;
   }
 }
 
 async function processGroups(requestCode) {  
   try {        
     await authenticate(requestCode);  
-    await initSelf();  
+    await initSelf();
     
-    // cache warmup
-    await prepareGroups();    
-
+    const pmInterval = getConfigItem('TELEGRAM_PM_POLL_INTERVAL') || '15';
+    pmTimer = setInterval(() => {
+      if (!getIsRunning()) return;
+      pollPrivateMessages();
+    }, parseInt(pmInterval, 10) * 1000);
+      
     const pollIterval = getConfigItem('TELEGRAM_POLL_INTERVAL') || '20';
-    const pollTimer = setInterval(() => {
+    pollTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollChannelsForNewPosts();
     }, parseInt(pollIterval, 10) * 1000);
+
+    // cache warmup
+    await prepareGroups();    
     
     while (getIsRunning()) {
       const data = await prepareGroups();
@@ -1179,7 +1261,9 @@ async function processGroups(requestCode) {
     return;
   } finally {
     setIsRunning(false);
-    clearInterval(pollTimer);
+    clearInterval(pmTimer);
+    clearInterval(pollTimer);    
+    lastSeenPM.clear();
     lastSeenPost.clear();
     channelDebounce.clear();
     console.log(`exiting`);
