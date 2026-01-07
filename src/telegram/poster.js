@@ -1220,7 +1220,7 @@ async function processGroups(requestCode) {
       pollPrivateMessages();
     }, parseInt(pmInterval, 10) * 1000);
       
-    const pollIterval = getConfigItem('TELEGRAM_POLL_INTERVAL') || '20';
+    const pollIterval = getConfigItem('TELEGRAM_CH_POLL_INTERVAL') || '20';
     pollTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollChannelsForNewPosts();
