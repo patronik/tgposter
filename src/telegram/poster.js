@@ -20,6 +20,7 @@ let TOTAL_SENT = 0;
 const lastSeenPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
+const channelIgnorePeer = new Map();
 const linkedChatCache = new Map();
 const processedPMs = new Map();
 
@@ -444,9 +445,11 @@ async function prepareGroups() {
   const data = readData();
   for (const group of data) {   
     try {
+      if (channelIgnorePeer.has(group.groupid)) continue;
       await getPeerCached(group.groupid);      
     } catch (err) {
-      console.error(`❌ Failed preparing "${group.groupid}"`);
+      channelIgnorePeer.set(group.groupid, true);
+      console.error(`❌ Failed preparing "${group.groupid}"`);      
     }    
   }
   return data;  
