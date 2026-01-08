@@ -99,7 +99,7 @@ function isPrivateMessage(msg) {
   return (
     msg?._ === 'message' &&
     msg.peer_id?._ === 'peerUser' &&
-    msg.message
+    (msg.message || msg.media)
   );
 }
 
