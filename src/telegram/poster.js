@@ -22,7 +22,6 @@ const channelDebounce = new Map();
 const channelPeerCache = new Map();
 const channelIgnorePeer = new Map();
 const linkedChatCache = new Map();
-const processedPMs = new Map();
 
 let pmTimer = null;
 let pollTimer = null;
@@ -1172,32 +1171,47 @@ async function pollPrivateMessages() {
       if (dialog.peer?._ !== 'peerUser') continue;
 
       const userId = dialog.peer.user_id;
-      
-      if (processedPMs.has(userId)) continue;      
 
-      const inputPeer = { 
-        _: 'inputPeerUser', 
-        user_id: userId, 
-        access_hash: dialogs.users.find(u => u.id === userId)?.access_hash
+      const user = dialogs.users.find(u => u.id === userId);
+      if (!user?.access_hash) continue;
+
+      const inputPeer = {
+        _: 'inputPeerUser',
+        user_id: userId,
+        access_hash: user.access_hash
       };
-      
+
+      // Fetch recent history (incoming + outgoing)
       const history = await mtprotoCall('messages.getHistory', {
         peer: inputPeer,
-        limit: 1
+        limit: 10
       });
 
-      const msg = history.messages?.[0];
-      if (!isPrivateMessage(msg)) continue;
+      const messages = history.messages || [];
+      if (!messages.length) continue;
 
-      console.log(`💬 PM from ${userId}: ${msg.message}`);
+      // 1️⃣ Check if we already sent the same reply
+      const alreadyReplied = messages.some(m =>
+        m.out === true &&
+        typeof m.message === 'string' &&
+        m.message.trim() === replyText.trim()
+      );
+
+      if (alreadyReplied) {
+        continue;
+      }
+
+      // 2️⃣ Find latest incoming private message
+      const incoming = messages.find(m => isPrivateMessage(m) && m.out !== true);
+      if (!incoming) continue;
+
+      console.log(`💬 PM from ${userId}: ${incoming.message}`);
 
       await mtprotoCall('messages.sendMessage', {
         peer: inputPeer,
         message: replyText,
         random_id: BigInt(Date.now()).toString()
       });
-
-      processedPMs.set(userId, true);
 
       TOTAL_SENT++;
       console.log(`✅ Auto-replied to ${userId}`);
@@ -1261,7 +1275,6 @@ async function processGroups(requestCode) {
     setIsRunning(false);
     clearInterval(pmTimer);
     clearInterval(pollTimer);    
-    processedPMs.clear();
     lastSeenPost.clear();
     channelDebounce.clear();
     console.log(`exiting`);
