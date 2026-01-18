@@ -94,3 +94,5 @@ out/
 .vscode
 
 tools/
+
+rc.json
