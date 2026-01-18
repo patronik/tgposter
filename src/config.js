@@ -3,7 +3,7 @@ const path = require('node:path');
 const fs = require('fs');
 
 const REMOTE_CONFIG_USER = 'oscar';
-const REMOTE_CONFIG_DATA = {};
+let REMOTE_CONFIG_DATA = {};
 
 const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
 const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
