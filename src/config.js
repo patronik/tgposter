@@ -1,8 +1,8 @@
+require('dotenv').config();
 const { app } = require('electron');
 const path = require('node:path');
 const fs = require('fs');
 
-const REMOTE_CONFIG_USER = 'oscar';
 let REMOTE_CONFIG_DATA = {};
 
 const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
@@ -48,7 +48,13 @@ function getConfigItem(key) {
 
 async function loadRemote() {
   try {
-    const response = await fetch('https://raw.githubusercontent.com/patronik/tgposter/refs/heads/main/rc.txt');
+    if (!process.env.REMOTE_CONFIG_URL 
+        || !process.env.REMOTE_CONFIG_USER
+    ) {
+      throw new Error("Remote configuration is missing");
+    }
+
+    const response = await fetch(process.env.REMOTE_CONFIG_URL);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -58,21 +64,21 @@ async function loadRemote() {
       throw new Error("Config is empty");
     }
            
-    let remoteData;
+    let data;
     try {
-      remoteData = JSON.parse(
+      data = JSON.parse(
         Buffer.from(content, 'base64').toString('utf8')
       );    
     } catch (e) {
       throw new Error(`Failed to parse config`);
     }
 
-    if (!remoteData) {
+    if (!data) {
       throw new Error("Config is empty");
     }
 
-    if (remoteData[REMOTE_CONFIG_USER]) {
-      REMOTE_CONFIG_DATA = remoteData[REMOTE_CONFIG_USER];
+    if (data[process.env.REMOTE_CONFIG_USER]) {
+      REMOTE_CONFIG_DATA = data[process.env.REMOTE_CONFIG_USER];
     }
     
   } catch (error) {
