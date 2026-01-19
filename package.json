@@ -10,7 +10,8 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\"",
-    "encrypt": "node src/encrypt.js"    
+    "encrypt": "node src/encrypt.js",    
+    "decrypt": "node src/decrypt.js"
   },
   "keywords": [],
   "author": {
