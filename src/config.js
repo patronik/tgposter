@@ -98,7 +98,7 @@ async function loadRemote() {
            
     let data;
     try {      
-      data = decrypt(content, PASSWORD);
+      data = JSON.parse(decrypt(content, PASSWORD));
     } catch (e) {
       throw new Error(`Failed to parse config`);
     }
