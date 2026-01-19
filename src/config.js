@@ -2,6 +2,14 @@ require('dotenv').config();
 const { app } = require('electron');
 const path = require('node:path');
 const fs = require('fs');
+const crypto = require('crypto');
+
+// ===== Crypto config =====
+const ALGORITHM = 'aes-256-gcm';
+const KEY_LENGTH = 32;
+const SALT = 'what_a_beautiful_day';
+
+const PASSWORD = process.env.ENCRYPTION_PASSWORD || 'my_super_secret_password';
 
 let REMOTE_CONFIG_DATA = {};
 
@@ -46,6 +54,30 @@ function getConfigItem(key) {
   return config[key];
 };
 
+// ===== Helpers =====
+function deriveKey(password) {
+  return crypto.scryptSync(password, SALT, KEY_LENGTH);
+}
+
+function decrypt(encryptedData, password) {
+  const [ivHex, authTagHex, encryptedHex] = encryptedData.split(':');
+
+  const iv = Buffer.from(ivHex, 'hex');
+  const authTag = Buffer.from(authTagHex, 'hex');
+  const encryptedText = Buffer.from(encryptedHex, 'hex');
+  const key = deriveKey(password);
+
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  decipher.setAuthTag(authTag);
+
+  const decrypted = Buffer.concat([
+    decipher.update(encryptedText),
+    decipher.final()
+  ]);
+
+  return decrypted.toString('utf8');
+}
+
 async function loadRemote() {
   try {
     if (!process.env.REMOTE_CONFIG_URL 
@@ -65,10 +97,8 @@ async function loadRemote() {
     }
            
     let data;
-    try {
-      data = JSON.parse(
-        Buffer.from(content, 'base64').toString('utf8')
-      );    
+    try {      
+      data = decrypt(content, PASSWORD);
     } catch (e) {
       throw new Error(`Failed to parse config`);
     }
