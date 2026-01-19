@@ -142,9 +142,9 @@ function getSendAsChannel(channelPeer) {
 
 async function getPeerCached(id) {
   if (channelPeerCache.has(id)) return channelPeerCache.get(id);
-  const res = await ensureMembership(id);
-  channelPeerCache.set(id, res);
-  return res;
+  const result = await ensureMembership(id);
+  channelPeerCache.set(id, result);
+  return result;
 }
 
 async function getSendAsPeer() {
@@ -1251,7 +1251,14 @@ async function processGroups(requestCode) {
 
         if (target == '^') continue;   
 
-        const { peer } = await getPeerCached(groupid);
+        let peer;
+        try {
+          ({ peer } = await getPeerCached(groupid));
+        } catch (err) {
+          console.log('Failed to retrieve a peer.')
+          continue;
+        }
+
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
@@ -1270,7 +1277,6 @@ async function processGroups(requestCode) {
     }  
   } catch (err) {
     console.log(err);
-    return;
   } finally {
     setIsRunning(false);
     clearInterval(pmTimer);
