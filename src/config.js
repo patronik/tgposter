@@ -7,9 +7,8 @@ const crypto = require('crypto');
 // ===== Crypto config =====
 const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32;
-const SALT = process.env.ENCRYPTION_SALT || 'what_a_beautiful_day';
-
-const PASSWORD = process.env.ENCRYPTION_PASSWORD || 'my_super_secret_password';
+const SALT = process.env.ENCRYPTION_SALT;
+const PASSWORD = process.env.ENCRYPTION_PASSWORD;
 
 let REMOTE_CONFIG_DATA = {};
 
