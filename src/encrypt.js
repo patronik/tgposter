@@ -43,4 +43,4 @@ const encryptedData = encrypt(jsonData, PASSWORD);
 
 fs.writeFileSync(outputPath, encryptedData);
 
-console.log('✅ JSON file encrypted and saved to encrypted.txt');
+console.log('✅ JSON file encrypted');
