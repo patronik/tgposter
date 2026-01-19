@@ -10,7 +10,7 @@ const outputPath = path.join(__dirname, '..', 'config.txt');
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;
 const KEY_LENGTH = 32;
-const SALT = 'what_a_beautiful_day';
+const SALT = process.env.ENCRYPTION_SALT || 'what_a_beautiful_day';
 
 const PASSWORD = process.env.ENCRYPTION_PASSWORD || 'my_super_secret_password';
 
