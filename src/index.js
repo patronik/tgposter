@@ -118,7 +118,7 @@ ipcMain.handle('start', async (_) => {
   if (getConfigItem('LICENSE_EXPIRE_AT')) {
     const licenseExpireAt = new Date(getConfigItem('LICENSE_EXPIRE_AT'));
     const now = new Date();
-    if (licenseExpireAt > now) {
+    if (licenseExpireAt < now) {
       await licenseError();
       return;
     }
