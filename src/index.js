@@ -225,7 +225,7 @@ async function requestRestart(
 }
 
 async function licenseError(
-  reason = 'Термін ліцензії на використання програми закінчився!'
+  reason = 'Термін ліцензії програми закінчився!'
 ) {
   await dialog.showMessageBox({
     type: 'warning',
