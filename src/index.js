@@ -115,8 +115,9 @@ ipcMain.handle('set-config', (_, config) => {
 });
 
 ipcMain.handle('start', async (_) => {
-  if (getConfigItem('LICENSE_EXPIRE_AT')) {
-    const licenseExpireAt = new Date(getConfigItem('LICENSE_EXPIRE_AT'));
+  let expireAt = getConfigItem('LICENSE_EXPIRE_AT');
+  if (expireAt) {
+    expireAt = new Date(expireAt);
     const now = new Date();
     if (licenseExpireAt < now) {
       await licenseError();
