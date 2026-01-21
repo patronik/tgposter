@@ -114,7 +114,16 @@ ipcMain.handle('set-config', (_, config) => {
   return config;
 });
 
-ipcMain.handle('start', (_) => {
+ipcMain.handle('start', async (_) => {
+  if (getConfigItem('LICENSE_EXPIRE_AT')) {
+    const licenseExpireAt = new Date(getConfigItem('LICENSE_EXPIRE_AT'));
+    const now = new Date();
+    if (licenseExpireAt > now) {
+      await licenseError();
+      return;
+    }
+  }
+
   setIsRunning(true);  
   if (TASK_COUNT > 0) {    
     console.log(`already running`);
@@ -203,6 +212,20 @@ ipcMain.handle('import-data', async () => {
 
 async function requestRestart(
   reason = 'Ваша сесія змінилась, потрібен перезапуск програми!'
+) {
+  await dialog.showMessageBox({
+    type: 'warning',
+    title: 'Системне повідомлення',
+    message: '',
+    detail: `${reason}`,
+    buttons: ['OK'],
+    defaultId: 0
+  });
+  app.quit();
+}
+
+async function licenseError(
+  reason = 'Термін ліцензії на використання програми закінчився!'
 ) {
   await dialog.showMessageBox({
     type: 'warning',
