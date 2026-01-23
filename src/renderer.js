@@ -44,13 +44,13 @@ actionBtn.onclick = async () => {
   try {            
     const isConfigValid = await validateConfig();
     if (!isConfigValid) {      
-      appStatus.innerHTML = `відсутні <a href="configuration.html">налаштування</a>`;
+      appStatus.innerHTML = `<b>відсутні</b> <a href="configuration.html">налаштування</a>`;
       return;
     }
 
     const items = await window.api.getItems();
     if (!(items.length > 0)) {
-      appStatus.textContent = `відсутні групи/канали`;
+      appStatus.textContent = `<b>відсутні групи/канали</b>`;
       return;
     }
 
@@ -75,7 +75,7 @@ actionBtn.onclick = async () => {
 // request auth code
 window.api.onCodeRequest(() => {
   waitingForCode = true;
-  appStatus.innerHTML = '<b>Введіть код:</b>';
+  appStatus.innerHTML = '<b>Введіть код</b>';
   codeInput.value = '';
   input.focus();
 });
@@ -88,16 +88,25 @@ sendCodeBtn.onclick = async () => {
     appStatus.innerHTML = '<b>Код надісланий</b>';
     waitingForCode = false;
   } catch (err) {
-    appStatus.textContent = err.message;
+    appStatus.innerHTML = `<b>${e.message}</b>`;
   }
 };
+
+async function logout() {
+  try {
+    await window.api.logout();
+    appStatus.innerHTML = '<b>Успішний вихід</b>';
+  } catch (e) {
+    appStatus.innerHTML = `<b>${e.message}</b>`;
+  }
+}
 
 async function exportData() {
   try {
     await window.api.exportData();
-    appStatus.textContent = 'Дані експортовано';
+    appStatus.innerHTML = '<b>Дані експортовано</b>';
   } catch (e) {
-    appStatus.textContent = e.message;
+    appStatus.innerHTML = `<b>${e.message}</b>`;
   }
 }
 
@@ -106,10 +115,10 @@ async function importData() {
     const replaced = await window.api.importData();
     if (replaced) {
       await load();
-      appStatus.textContent = 'Дані імпортовано';
+      appStatus.innerHTML = '<b>Дані імпортовано</b>';
     }
   } catch (e) {
-    appStatus.textContent = e.message;
+    appStatus.innerHTML = `<b>${e.message}</b>`;
   }
 }
 

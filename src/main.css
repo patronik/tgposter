@@ -208,10 +208,6 @@ button:disabled {
   margin: 5px;
 }
 
-.controls .status_element {
-  padding-top: 7px;
-}
-
 .button-group {
   display: flex;  
   justify-content: center; 
@@ -219,6 +215,16 @@ button:disabled {
 
 .button-group div {
   padding: 5px;
+}
+
+.status_bar {
+  background: white;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 25px;
+  margin-bottom: 25px;
+  display: flex;  
+  justify-content: center; 
 }
 
 .spinner {

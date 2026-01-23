@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
   // auth
   onCodeRequest: (callback) => ipcRenderer.on('request-code', callback),
   submitCode: (code) => ipcRenderer.invoke('submit-code', code),
+  logout: () => ipcRenderer.invoke('logout'),
   // control
   start: () => ipcRenderer.invoke('start'),
   stop: () => ipcRenderer.invoke('stop'),   
@@ -23,6 +24,5 @@ contextBridge.exposeInMainWorld('api', {
   getIsRunning: () => ipcRenderer.invoke('get-is-running'),
   requestRestart: (reason) => ipcRenderer.invoke('request-restart', reason),
   // info
-  getTotalSent: () => ipcRenderer.invoke('get-total-sent'),
-  openDevTools: () => ipcRenderer.invoke('open-devtools')
+  getTotalSent: () => ipcRenderer.invoke('get-total-sent')
 });

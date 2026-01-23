@@ -58,12 +58,6 @@ app.on('window-all-closed', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
 
-ipcMain.handle('open-devtools', () => {
-  if (mainWindow) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
-});
-
 ipcMain.handle('get-total-sent', () => {
   return getTotalSent();
 });
@@ -162,12 +156,22 @@ function requestCode() {
 // Renderer responds here
 ipcMain.handle('submit-code', (_, code) => {
   if (!code) {
-    throw new Error('Invalid code');
+    throw new Error('Неправильний код');
   }
 
   if (codeResolver) {
     codeResolver(code);
     codeResolver = null;
+  }
+});
+
+ipcMain.handle('logout', (_) => {
+  const sessionPath = path.join(
+    app.getPath('userData'),
+    `${getConfigItem('TELEGRAM_PHONE_NUM')}-session.json`
+  );
+  if (fs.existsSync(sessionPath)) {
+    fs.unlinkSync(sessionPath);
   }
 });
 
