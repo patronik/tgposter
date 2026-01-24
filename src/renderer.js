@@ -50,7 +50,7 @@ actionBtn.onclick = async () => {
 
     const items = await window.api.getItems();
     if (!(items.length > 0)) {
-      appStatus.textContent = `<b>відсутні групи/канали</b>`;
+      appStatus.innerHTML = `<b>відсутні групи/канали</b>`;
       return;
     }
 
@@ -68,7 +68,7 @@ actionBtn.onclick = async () => {
       await window.api.stop();      
     }   
   } catch (err) {
-    appStatus.textContent = err.message;
+    appStatus.innerHTML = `<b>${err.message}</b>`;
   }  
 };
 
