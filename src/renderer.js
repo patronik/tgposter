@@ -72,12 +72,13 @@ actionBtn.onclick = async () => {
   }  
 };
 
-// request auth code
-window.api.onCodeRequest(() => {
+// request auth code (same flow in single- and multi-account mode: enter code, click "Надіслати код")
+window.api.onCodeRequest((phone) => {
   waitingForCode = true;
-  appStatus.innerHTML = '<b>Введіть код</b>';
+  const forPhone = phone ? ` для ${phone}` : '';
+  appStatus.innerHTML = `<b>Введіть код${forPhone}</b> та натисніть «Надіслати код»`;
   codeInput.value = '';
-  input.focus();
+  codeInput.focus();
 });
 
 // send code to main
@@ -88,7 +89,7 @@ sendCodeBtn.onclick = async () => {
     appStatus.innerHTML = '<b>Код надісланий</b>';
     waitingForCode = false;
   } catch (err) {
-    appStatus.innerHTML = `<b>${e.message}</b>`;
+    appStatus.innerHTML = `<b>${err.message}</b>`;
   }
 };
 

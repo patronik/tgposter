@@ -12,8 +12,14 @@ contextBridge.exposeInMainWorld('api', {
   getRequiredKeys: () => ipcRenderer.invoke('get-required-keys'),  
   getConfigItem: (key) => ipcRenderer.invoke('get-config-item', key),
   setConfig: (config) => ipcRenderer.invoke('set-config', config),
+  // accounts
+  getAccounts: () => ipcRenderer.invoke('get-accounts'),
+  addAccount: (phone) => ipcRenderer.invoke('add-account', phone),
+  updateAccount: (oldPhone, newPhone) => ipcRenderer.invoke('update-account', oldPhone, newPhone),
+  deleteAccount: (phone) => ipcRenderer.invoke('delete-account', phone),
+  logoutAccount: (phone) => ipcRenderer.invoke('logout-account', phone),
   // auth
-  onCodeRequest: (callback) => ipcRenderer.on('request-code', callback),
+  onCodeRequest: (callback) => ipcRenderer.on('request-code', (event, phone) => callback(phone)),
   submitCode: (code) => ipcRenderer.invoke('submit-code', code),
   logout: () => ipcRenderer.invoke('logout'),
   // control

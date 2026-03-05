@@ -1,5 +1,5 @@
 const { readData, getConfigItem } = require('../config');
-const { mtproto, authenticate } = require(`./mtproto`);
+const { getCurrentClient, advanceToNextAccount, authenticate, isMultiAccountMode } = require('./mtproto');
 const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
@@ -40,25 +40,40 @@ function getTotalSent() {
 /* -- STATE END -- */
 
 async function mtprotoCall(method, data, retry = 0) {
+  const mtproto = getCurrentClient();
+  if (!mtproto) throw new Error('No Telegram client (add account or set TELEGRAM_PHONE_NUM)');
   try {
-      const result = await mtproto.call(method, data);
-      const apiDelay = getConfigItem('TELEGRAM_API_DELAY') || '10';
-      await sleep(parseInt(apiDelay, 10) * 1000);
-      return result;
-    } catch (err) {     
+    const result = await mtproto.call(method, data);
+    const apiDelay = getConfigItem('TELEGRAM_API_DELAY') || '10';
+    await sleep(parseInt(apiDelay, 10) * 1000);
+    return result;
+  } catch (err) {
     const errorMessage = err.error_message || err.message;
-    if (errorMessage && errorMessage.startsWith('FLOOD_WAIT')) { 
+    if (errorMessage && errorMessage.startsWith('FLOOD_WAIT')) {
       console.error(`❌ Flood wait error:`, err);
-      const wait = Number(errorMessage.split('_').pop()); 
-      await sleep(wait * 1000); 
+      const wait = Number(errorMessage.split('_').pop());
+      await sleep(wait * 1000);
       if (retry < 2) {
-        console.log(`Retry ${(retry + 1)}`);
+        console.log(`Retry ${retry + 1}`);
         return await mtprotoCall(method, data, retry + 1);
       } else {
         throw err;
       }
     } else {
       throw err;
+    }
+  }
+}
+
+function onMessageSent() {
+  TOTAL_SENT++;
+  if (isMultiAccountMode()) {
+    const frequency = Math.max(1, parseInt(String(getConfigItem('ACCOUNT_CHANGE_FREQUENCY') || '1'), 10) || 1);
+    // frequency 1 => change after every message; frequency n => change every n messages
+    const shouldRotate = frequency === 1 || TOTAL_SENT % frequency === 0;
+    if (shouldRotate) {
+      advanceToNextAccount();
+      SELF_USER_ID = null;
     }
   }
 }
@@ -599,7 +614,7 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
       () => sendAndMaybeEditAndMaybeDelete(params, edition, `message in ${groupid}`)
     );
 
-    TOTAL_SENT++;
+    onMessageSent();
     console.log(`✅ Message sent to ${groupid}`);
   } catch (error) {
     console.error(`❌ Error sending to ${groupid}:`, error);
@@ -650,7 +665,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
 
     await mtprotoCall('messages.sendReaction', params);
 
-    TOTAL_SENT++;
+    onMessageSent();
     console.log(`✅ Reacted to message ${params.msg_id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
@@ -873,7 +888,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
       () => sendAndMaybeEditAndMaybeDelete(params, edition, `comment in ${channelGroupId}`)
     );
 
-    TOTAL_SENT++;
+    onMessageSent();
     console.log(`✅ Comment sent (reply_to=${params.reply_to_msg_id}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
@@ -963,7 +978,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', params);
 
-    TOTAL_SENT++;
+    onMessageSent();
     console.log(`✅ Reacted to comment ${params.msg_id} in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ Comment react error:', error);
@@ -983,7 +998,7 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   });
 
-  TOTAL_SENT++;
+  onMessageSent();
   console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
 
@@ -1038,7 +1053,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     () => sendAndMaybeEditAndMaybeDelete(sendParams, edition, `comment in ${channelGroupId}`)
   );
 
-  TOTAL_SENT++;
+  onMessageSent();
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
 }
 
@@ -1213,7 +1228,7 @@ async function pollPrivateMessages() {
         random_id: BigInt(Date.now()).toString()
       });
 
-      TOTAL_SENT++;
+      onMessageSent();
       console.log(`✅ Auto-replied to ${userId}`);
     }
   } catch (err) {

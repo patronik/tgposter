@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const { readData, writeData, loadRemote, readConfig, writeConfig, getConfigItem, getReqKeys } = require('./config');
+const { getAccounts, addAccount, updateAccount, deleteAccount } = require('./accounts');
 const { processGroups, getIsRunning, setIsRunning, getTotalSent } = require('./telegram/poster');
 const fs = require('fs');
 const path = require('node:path');
@@ -146,10 +147,10 @@ ipcMain.handle('request-restart', async (_, reason) => {
 /**
  * Ask renderer for password and wait for it
  */
-function requestCode() {
+function requestCode(phone) {
   return new Promise((resolve, reject) => {
     codeResolver = resolve;
-    mainWindow.webContents.send('request-code');
+    mainWindow.webContents.send('request-code', phone || getConfigItem('TELEGRAM_PHONE_NUM'));
   });
 }
 
@@ -173,6 +174,15 @@ ipcMain.handle('logout', (_) => {
   if (fs.existsSync(sessionPath)) {
     fs.unlinkSync(sessionPath);
   }
+});
+
+ipcMain.handle('get-accounts', () => getAccounts());
+ipcMain.handle('add-account', (_, phone) => addAccount(phone));
+ipcMain.handle('update-account', (_, oldPhone, newPhone) => updateAccount(oldPhone, newPhone));
+ipcMain.handle('delete-account', (_, phone) => deleteAccount(phone));
+ipcMain.handle('logout-account', (_, phone) => {
+  const sessionPath = path.join(app.getPath('userData'), `${phone}-session.json`);
+  if (fs.existsSync(sessionPath)) fs.unlinkSync(sessionPath);
 });
 
 ipcMain.handle('export-data', async () => {

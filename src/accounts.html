@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Акаунти Telegram</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <div class="container">
+    <h2>Акаунти Telegram</h2>
+    <a href="index.html">&#x2302; Головна</a>
+    <a href="configuration.html">&#9881; Налаштування</a>
+    <a href="accounts.html">&#128101; Акаунти</a>
+    <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Допомога</a>
+
+    <p style="margin: 10px 0;">Режим мультиакаунт та частоту зміни акаунта налаштовуйте на сторінці <a href="configuration.html">Налаштування</a>: <code>MULTI_ACCOUNT_MODE</code>, <code>ACCOUNT_CHANGE_FREQUENCY</code>.</p>
+
+    <div class="form-grid">
+      <input id="phone" placeholder="Номер телефону (+380...)"/>
+    </div>
+    <div class="button-group">
+      <button id="add_btn" onclick="addAccount()"><span class="material-icons">add</span> Додати</button>
+      <button id="save_btn" style="display: none;" onclick="saveAccount()"><span class="material-icons">save</span> Зберегти</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <h2>Список акаунтів</h2>
+    <table class="data-grid">
+      <thead>
+        <tr>
+          <th>Номер телефону</th>
+          <th width="180">Дії</th>
+        </tr>
+      </thead>
+      <tbody id="accounts-list"></tbody>
+    </table>
+    <div id="empty-accounts" class="empty-state" style="display: none;">
+      <p>Акаунтів немає. Додайте номер телефону вище.</p>
+    </div>
+  </div>
+
+  <script src="accounts-page.js"></script>
+</body>
+</html>
