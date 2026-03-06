@@ -79,20 +79,39 @@ function onMessageSent() {
 }
 
 function getInputPeer(peer) {
+  if (peer._ === 'inputPeerChannel' || peer._ === 'inputPeerChat') return peer;
   let inputPeer;
   if (peer._ === 'chat') {
-      inputPeer = { 
-        _: 'inputPeerChat', 
-        chat_id: peer.id 
-      };
+    inputPeer = { _: 'inputPeerChat', chat_id: peer.id };
   } else {
     inputPeer = {
-        _: 'inputPeerChannel',
-        channel_id: peer.id,
-        access_hash: peer.access_hash,
+      _: 'inputPeerChannel',
+      channel_id: peer.channel_id ?? peer.id,
+      access_hash: peer.access_hash,
     };
-  }   
+  }
   return inputPeer;
+}
+
+/** Mute notifications for a chat/channel so other devices (same account) don't get notified. */
+async function mutePeerNotifications(peer) {
+  try {
+    const inputPeer = getInputPeer(peer);
+    await mtprotoCall('account.updateNotifySettings', {
+      peer: {
+        _: 'inputNotifyPeer',
+        peer: inputPeer,
+      },
+      settings: {
+        _: 'inputPeerNotifySettings',
+        flags: 2,
+        mute_until: 2147483647, // effectively forever
+      },
+    });
+    console.log('🔇 Muted notifications for this chat/channel');
+  } catch (err) {
+    console.warn('Could not mute notifications:', err.message || err.error_message);
+  }
 }
 
 function isOurMessage(msg, sendAsPeer) {
@@ -248,11 +267,13 @@ async function ensureMembership(groupidOrInvite) {
         const imported = await mtprotoCall('messages.importChatInvite', { hash: inviteHash });
         const peer = imported.chats[0];
         console.log(`✅ Joined via invite: ${groupidOrInvite}`);
+        await mutePeerNotifications(peer);
         return { peer };
       } catch (error) {
         if (error.error_message.includes('USER_ALREADY_PARTICIPANT')) {
           const checked = await mtprotoCall('messages.checkChatInvite', { hash: inviteHash });
           console.log(`ℹ️ Already in: ${groupidOrInvite}`);
+          await mutePeerNotifications(checked.chat);
           return { peer: checked.chat };
         }
         throw error;
@@ -302,6 +323,7 @@ async function ensureMembership(groupidOrInvite) {
           participant: { _: 'inputPeerSelf' },
         });
         console.log(`ℹ️ Already in: ${groupidOrInvite}`);
+        await mutePeerNotifications(peer);
         return { peer };
       } catch (error) {
         if (error.error_message === 'USER_NOT_PARTICIPANT') {
@@ -309,6 +331,7 @@ async function ensureMembership(groupidOrInvite) {
             channel: inputChannel,
           });
           console.log(`✅ Joined ${groupidOrInvite}`);
+          await mutePeerNotifications(peer);
           return { peer };
         }
         throw error;
