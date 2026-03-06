@@ -1,5 +1,5 @@
 const { readData, getConfigItem } = require('../config');
-const { getCurrentClient, advanceToNextAccount, authenticate, isMultiAccountMode, getAccountList, setCurrentIndex } = require('./mtproto');
+const { getCurrentClient, getCurrentPhone, advanceToNextAccount, authenticate, isMultiAccountMode, getAccountList, setCurrentIndex } = require('./mtproto');
 const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
@@ -17,11 +17,19 @@ let IS_RUNNING = false;
 
 let TOTAL_SENT = 0;
 
+// Per-account caches: Map<accountKey, Map<...>> so multi-account mode does not share state
 const lastSeenPost = new Map();
 const channelDebounce = new Map();
 const channelPeerCache = new Map();
 const channelIgnorePeer = new Map();
 const linkedChatCache = new Map();
+
+/** Returns the inner cache for the current account so caches are not shared across accounts. */
+function getAccountScopedCache(store) {
+  const accountKey = getCurrentPhone() ?? 'default';
+  if (!store.has(accountKey)) store.set(accountKey, new Map());
+  return store.get(accountKey);
+}
 
 let pmTimer = null;
 let pollTimer = null;
@@ -175,9 +183,10 @@ function getSendAsChannel(channelPeer) {
 }
 
 async function getPeerCached(id) {
-  if (channelPeerCache.has(id)) return channelPeerCache.get(id);
+  const cache = getAccountScopedCache(channelPeerCache);
+  if (cache.has(id)) return cache.get(id);
   const result = await ensureMembership(id);
-  channelPeerCache.set(id, result);
+  cache.set(id, result);
   return result;
 }
 
@@ -345,8 +354,9 @@ async function ensureMembership(groupidOrInvite) {
 
 async function getLinkedChatPeer(channelPeer) {
   try {
-    if (linkedChatCache.has(channelPeer.id)) {
-      return linkedChatCache.get(channelPeer.id);
+    const cache = getAccountScopedCache(linkedChatCache);
+    if (cache.has(channelPeer.id)) {
+      return cache.get(channelPeer.id);
     }
 
     const fullChannel = await mtprotoCall('channels.getFullChannel', {
@@ -364,7 +374,7 @@ async function getLinkedChatPeer(channelPeer) {
       access_hash: linkedChat.access_hash
     };
 
-    linkedChatCache.set(channelPeer.id, result);
+    cache.set(channelPeer.id, result);
   return result;
   } catch (error) {
     console.error('Error getting linked chat:', error);
@@ -480,12 +490,13 @@ async function withTemporaryClearedBio(action) {
 
 async function prepareGroups() {  
   const data = readData();
+  const ignoreCache = getAccountScopedCache(channelIgnorePeer);
   for (const group of data) {   
     try {
-      if (channelIgnorePeer.has(group.groupid)) continue;
+      if (ignoreCache.has(group.groupid)) continue;
       await getPeerCached(group.groupid);      
     } catch (err) {
-      channelIgnorePeer.set(group.groupid, true);
+      ignoreCache.set(group.groupid, true);
       console.error(`❌ Failed preparing "${group.groupid}"`);      
     }    
   }
@@ -1120,12 +1131,14 @@ function scheduleDebouncedPost(
 ) {
 
   const key = `${channelPeer.id}:${groupConfig.id}`;
+  const lastSeenCache = getAccountScopedCache(lastSeenPost);
+  const debounceCache = getAccountScopedCache(channelDebounce);
 
-  const lastSeen = lastSeenPost.get(key);  
+  const lastSeen = lastSeenCache.get(key);  
   if (lastSeen && postId <= lastSeen) return;    
-  lastSeenPost.set(key, postId);  
+  lastSeenCache.set(key, postId);  
 
-  const existing = channelDebounce.get(key);
+  const existing = debounceCache.get(key);
   if (existing?.timer) {
     clearTimeout(existing.timer);
   }
@@ -1146,11 +1159,11 @@ function scheduleDebouncedPost(
     } catch (err) {
       console.error('❌ Debounced post handler error:', err);
     } finally {
-      channelDebounce.delete(key);
+      debounceCache.delete(key);
     }
   }, parseInt(postDebounce, 10) * 1000);
 
-  channelDebounce.set(key, { postId, timer });   
+  debounceCache.set(key, { postId, timer });   
   
   console.log(
     `📰 Scheduled reply in ${groupConfig.groupid} to post ID ${postId} created ${elapsedSec}s (~${elapsedMin}m, ~${elapsedHours}h) ago`
@@ -1330,7 +1343,14 @@ async function processGroups(requestCode) {
     setIsRunning(false);
     clearInterval(pmTimer);
     clearInterval(pollTimer);    
+    for (const m of lastSeenPost.values()) m.clear();
     lastSeenPost.clear();
+    for (const m of channelDebounce.values()) {
+      for (const entry of m.values()) {
+        if (entry?.timer) clearTimeout(entry.timer);
+      }
+      m.clear();
+    }
     channelDebounce.clear();
     console.log(`exiting`);
   }    
