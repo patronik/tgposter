@@ -13,7 +13,7 @@ const clientCache = new Map();
 let currentIndex = 0;
 
 function isMultiAccountMode() {
-  return String(getConfigItem('MULTI_ACCOUNT_MODE') || '').toLowerCase() === 'true';
+  return Boolean(getConfigItem('MULTI_ACCOUNT_MODE') || null);
 }
 
 function getAccountList() {
