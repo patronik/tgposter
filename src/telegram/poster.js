@@ -1,5 +1,5 @@
 const { readData, getConfigItem } = require('../config');
-const { getCurrentClient, advanceToNextAccount, authenticate, isMultiAccountMode } = require('./mtproto');
+const { getCurrentClient, advanceToNextAccount, authenticate, isMultiAccountMode, getAccountList, setCurrentIndex } = require('./mtproto');
 const { sleep, getRandomNumber } = require('../utils');
 const { queryLLM, LLMEnabled } = require('../ai');
 
@@ -1241,10 +1241,21 @@ async function pollPrivateMessages() {
 async function processGroups(requestCode) {  
   try {        
     await authenticate(requestCode);  
-    await initSelf();
 
-    // cache warmup
-    await prepareGroups();  
+    // Warm up self/profile and group membership for all accounts before processing
+    if (isMultiAccountMode()) {
+      const accounts = getAccountList();
+      for (let i = 0; i < accounts.length; i++) {
+        setCurrentIndex(i);
+        SELF_USER_ID = null;
+        await initSelf();
+        await prepareGroups();
+      }
+    } else {
+      SELF_USER_ID = null;
+      await initSelf();
+      await prepareGroups();
+    }
     
     const pmInterval = getConfigItem('TELEGRAM_PM_POLL_INTERVAL') || '30';
     pmTimer = setInterval(() => {

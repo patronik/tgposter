@@ -57,11 +57,26 @@ function advanceToNextAccount() {
   currentIndex = (currentIndex + 1) % list.length;
 }
 
+function setCurrentIndex(index) {
+  const list = getAccountList();
+  if (!list.length) {
+    currentIndex = 0;
+    return;
+  }
+  const len = list.length;
+  currentIndex = ((index % len) + len) % len;
+}
+
 module.exports.authenticate = async (requestCode) => {
   const list = getAccountList();
-  if (!list.length) throw new Error('No account configured. Add TELEGRAM_PHONE_NUM or enable multi-account and add accounts.');
+  if (!list.length) {
+    throw new Error('No account configured. Add TELEGRAM_PHONE_NUM or enable multi-account and add accounts.');
+  }
 
-  for (const { phone } of list) {
+  const authDelay = parseInt(String(getConfigItem('MULTI_ACCOUNT_AUTH_DELAY') || '0'), 60) || 0;
+
+  for (let i = 0; i < list.length; i++) {
+    const { phone } = list[i];
     const client = getClient(phone);
     try {
       await client.call('users.getUsers', {
@@ -83,6 +98,10 @@ module.exports.authenticate = async (requestCode) => {
         throw error;
       }
     }
+
+    if (authDelay > 0 && i < list.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, authDelay * 1000));
+    }
   }
 };
 
@@ -92,3 +111,4 @@ module.exports.getCurrentPhone = getCurrentPhone;
 module.exports.advanceToNextAccount = advanceToNextAccount;
 module.exports.isMultiAccountMode = isMultiAccountMode;
 module.exports.getAccountList = getAccountList;
+module.exports.setCurrentIndex = setCurrentIndex;
