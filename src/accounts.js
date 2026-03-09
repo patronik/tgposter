@@ -1,13 +1,16 @@
-const { app } = require('electron');
+const { getDataDir } = require('./dataDir');
 const path = require('node:path');
 const fs = require('fs');
 
-const ACCOUNTS_FILE = path.join(app.getPath('userData'), 'accounts.json');
+function getAccountsFilePath() {
+  return path.join(getDataDir(), 'accounts.json');
+}
 
 function readAccounts() {
-  if (!fs.existsSync(ACCOUNTS_FILE)) return [];
+  const file = getAccountsFilePath();
+  if (!fs.existsSync(file)) return [];
   try {
-    const data = JSON.parse(fs.readFileSync(ACCOUNTS_FILE, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
     return Array.isArray(data) ? data : [];
   } catch {
     return [];
@@ -15,7 +18,9 @@ function readAccounts() {
 }
 
 function writeAccounts(accounts) {
-  fs.writeFileSync(ACCOUNTS_FILE, JSON.stringify(accounts, null, 2), 'utf8');
+  const dir = getDataDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(getAccountsFilePath(), JSON.stringify(accounts, null, 2), 'utf8');
 }
 
 function normalizePhone(phone) {

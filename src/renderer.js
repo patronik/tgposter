@@ -111,16 +111,24 @@ async function exportData() {
   }
 }
 
-async function importData() {
-  try {
-    const replaced = await window.api.importData();
-    if (replaced) {
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,application/json';
+  input.onchange = async () => {
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      await window.api.importData(parsed);
       await load();
       appStatus.innerHTML = '<b>Дані імпортовано</b>';
+    } catch (e) {
+      appStatus.innerHTML = `<b>${e.message}</b>`;
     }
-  } catch (e) {
-    appStatus.innerHTML = `<b>${e.message}</b>`;
-  }
+  };
+  input.click();
 }
 
 function renderTarget(key) {
@@ -149,7 +157,7 @@ async function load() {
       <td>${i.comment}</td> 
       <td>${i.edition}</td>
       <td>${i.reaction}</td>
-      <td>${i.prompt.slice(0, 100)}</td>
+      <td>${(i.prompt || '').slice(0, 100)}</td>
       <td>${renderTarget(i.target)}</td>
       <td>                
         <div class="btn_container">

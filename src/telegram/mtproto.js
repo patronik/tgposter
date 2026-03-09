@@ -1,7 +1,7 @@
 const { getConfigItem } = require('../config');
 const { readAccounts } = require('../accounts');
 const MTProto = require('@mtproto/core');
-const { app } = require('electron');
+const { getDataDir } = require('../dataDir');
 const path = require('node:path');
 
 const config = {
@@ -31,7 +31,7 @@ function getClient(phone) {
   const client = new MTProto({
     ...config,
     storageOptions: {
-      path: path.join(app.getPath('userData'), `${phone}-session.json`),
+      path: path.join(getDataDir(), `${phone}-session.json`),
     },
   });
   clientCache.set(phone, client);

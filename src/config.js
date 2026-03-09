@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { app } = require('electron');
+const { getDataDir } = require('./dataDir');
 const path = require('node:path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -12,16 +12,23 @@ const PASSWORD = process.env.ENCRYPTION_PASSWORD;
 
 let REMOTE_CONFIG_DATA = {};
 
-const DATA_FILE = path.join(app.getPath('userData'), 'data.json');
-const CONFIG_FILE = path.join(app.getPath('userData'), 'config.json');
+function getDataFile() {
+  return path.join(getDataDir(), 'data.json');
+}
+function getConfigFile() {
+  return path.join(getDataDir(), 'config.json');
+}
 
 function readData() {
-  if (!fs.existsSync(DATA_FILE)) return [];
-  return JSON.parse(fs.readFileSync(DATA_FILE));
+  const file = getDataFile();
+  if (!fs.existsSync(file)) return [];
+  return JSON.parse(fs.readFileSync(file));
 }
 
 function writeData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+  const dir = getDataDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(getDataFile(), JSON.stringify(data, null, 2));
 }
 
 function getReqKeys() {   
@@ -33,8 +40,9 @@ function getReqKeys() {
 };
 
 function readConfig() {
-  if (!fs.existsSync(CONFIG_FILE)) return {...REMOTE_CONFIG_DATA};
-  const LOCAL_CONFIG_DATA = JSON.parse(fs.readFileSync(CONFIG_FILE));  
+  const file = getConfigFile();
+  if (!fs.existsSync(file)) return {...REMOTE_CONFIG_DATA};
+  const LOCAL_CONFIG_DATA = JSON.parse(fs.readFileSync(file));
   return {
     ...LOCAL_CONFIG_DATA,
     ...REMOTE_CONFIG_DATA
@@ -42,7 +50,9 @@ function readConfig() {
 }
 
 function writeConfig(config) {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));  
+  const dir = getDataDir();
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(getConfigFile(), JSON.stringify(config, null, 2));
 }
 
 function getConfigItem(key) { 
