@@ -52,14 +52,6 @@ actionBtn.onclick = async () => {
     if (!(items.length > 0)) {
       appStatus.innerHTML = `<b>відсутні групи/канали</b>`;
       return;
-    }
-
-    const requestRestart = sessionStorage.getItem('request-restart');
-    if (requestRestart) {
-      sessionStorage.removeItem('request-restart');
-      await window.api.requestRestart(
-        'Ваша сесія змінилась, потрібен перезапуск програми!'
-      );
     }    
 
     if (!isRunning) {

@@ -74,11 +74,7 @@ async function saveConfig() {
     document.getElementById('value').value = '';  
     document.getElementById("add_btn").style.display = "block";
     document.getElementById("save_btn").style.display = "none";
-    document.getElementById("key").readOnly = false;  
-
-    if (required.includes(key)) {       
-      sessionStorage.setItem('request-restart', '1');      
-    }
+    document.getElementById("key").readOnly = false;
   }  
 }
 

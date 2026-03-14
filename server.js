@@ -287,11 +287,6 @@ app.post('/api/import', (req, res) => {
   }
 });
 
-// request-restart: in web version we don't quit the process; frontend can show a message
-app.post('/api/request-restart', (req, res) => {
-  res.json({ message: req.body?.reason || 'Ваша сесія змінилась, потрібен перезапуск програми!' });
-});
-
 // Load remote config on startup
 loadRemote()
   .then(() => {

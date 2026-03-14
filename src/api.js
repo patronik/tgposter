@@ -43,7 +43,6 @@ window.api = {
   start: () => request('POST', '/api/start'),
   stop: () => request('POST', '/api/stop'),
   getStatus: () => request('GET', '/api/status'),
-  requestRestart: (reason) => request('POST', '/api/request-restart', { reason }),
   // legacy aliases
   getIsRunning: async () => (await request('GET', '/api/status')).isRunning,
   getTotalSent: async () => (await request('GET', '/api/status')).totalSent,
