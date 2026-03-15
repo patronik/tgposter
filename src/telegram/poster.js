@@ -1307,9 +1307,26 @@ async function processGroups(requestCode) {
     
     while (getIsRunning()) {
       const data = await prepareGroups();
+
+      const throttlingRateRaw = getConfigItem('TELEGRAM_THROTLING_RATE') || '0';
+      const throttlingRate =
+        Math.min(100, Math.max(0, parseInt(String(throttlingRateRaw), 10) || 0));
+
       for (const group of data) {        
         const { groupid, comment, edition, reaction, prompt, target } = group;
         console.log(`\n⚙️ Processing ${groupid}`);
+
+        if (throttlingRate > 0) {
+          const roll = Math.random() * 100;
+          if (roll < throttlingRate) {
+            console.log(
+              `⏭️ Skipping ${groupid} due to TELEGRAM_THROTLING_RATE=${throttlingRate} (roll=${roll.toFixed(
+                2
+              )})`
+            );
+            continue;
+          }
+        }
 
         if (target == '^') continue;   
 
