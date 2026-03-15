@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>Профіль</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="main.css">
+  <style>
+    .profile-photo-wrap {
+      margin-bottom: 1rem;
+    }
+    .profile-photo-wrap img {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid var(--border);
+    }
+    .profile-photo-placeholder {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: var(--light);
+      border: 2px dashed var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray);
+    }
+    .profile-form .form-group { align-items: flex-start; }
+    .profile-form .form-group input,
+    .profile-form .form-group textarea { width: 100%; max-width: 400px; }
+    .profile-status { color: var(--gray); font-size: 0.9rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Профіль</h2>
+    <a href="index.html">&#x2302; Головна</a>
+    <a href="configuration.html">&#9881; Налаштування</a>
+    <a href="accounts.html">&#128101; Акаунти</a>
+    <a href="profile.html">&#128100; Профіль</a>
+    <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Допомога</a>
+
+    <p id="profile-status" class="profile-status">Завантаження…</p>
+
+    <div class="profile-photo-wrap">
+      <img id="profile-photo" alt="Фото профілю" style="display: none;" />
+      <div id="profile-photo-placeholder" class="profile-photo-placeholder">Немає фото</div>
+    </div>
+
+    <div class="profile-form form-grid">
+      <div class="form-group">
+        <label for="profile-username">Username</label>
+        <input id="profile-username" placeholder="@username" />
+      </div>
+      <div class="form-group">
+        <label for="profile-bio">Біо</label>
+        <textarea id="profile-bio" rows="4" placeholder="Опис профілю"></textarea>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button id="update-profile-btn" onclick="updateProfile()"><span class="material-icons">save</span> Оновити профіль</button>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="profile-page.js"></script>
+</body>
+</html>

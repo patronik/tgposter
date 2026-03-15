@@ -35,6 +35,10 @@ window.api = {
     request('PUT', `/api/accounts/${encodeURIComponent(oldPhone)}`, { phone: newPhone }),
   deleteAccount: (phone) => request('DELETE', `/api/accounts/${encodeURIComponent(phone)}`),
   logoutAccount: (phone) => request('POST', `/api/accounts/${encodeURIComponent(phone)}/logout`),
+  // profile (active account)
+  getProfile: () => request('GET', '/api/profile'),
+  getProfilePhotoUrl: () => `${API_BASE}/api/profile/photo?t=${Date.now()}`,
+  updateProfile: (data) => request('PUT', '/api/profile', data),
   // auth
   getPendingCode: () => request('GET', '/api/auth/pending-code'),
   submitCode: (code) => request('POST', '/api/auth/submit-code', { code }),

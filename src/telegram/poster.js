@@ -155,8 +155,8 @@ async function initSelf() {
 }
 
 function getSecondsDifferenceToNow(postTime) {
-  const now = Math.floor(Date.now() / 1000); 
-  const elapsedSeconds = now - postTime;  
+  const now = Math.floor(Date.now() / 1000);
+  const elapsedSeconds = now - postTime;
   return elapsedSeconds;
 }
 
@@ -206,18 +206,18 @@ async function getSendAsPeer() {
   }
 
   let sendAsChannel;
-  
+
   if (sendAsChannels.length === 1) {
     sendAsChannel = sendAsChannels[0];
   } else {
     sendAsChannel = sendAsChannels[getRandomNumber(0, sendAsChannels.length - 1)];
   }
-  
+
   const sendAsChannelPeer = await getPeerCached(sendAsChannel);
   if (sendAsChannelPeer.peer._ !== 'channel') {
     throw new Error('TELEGRAM_SEND_AS_CHANNEL must be a channel');
   }
-  
+
   return sendAsChannelPeer.peer;
 }
 
@@ -240,28 +240,28 @@ async function handlePrompt(prompt, input) {
     skip: false,
     answer: "",
     message_id: null
-  }; 
-    
+  };
+
   const response = await queryLLM(`${prompt}\nINPUT:\n${input}`);
   console.log(`LLM: ${response}`);
 
   let jsonData;
   try {
-    jsonData = JSON.parse(response);    
-  } catch (e) {        
+    jsonData = JSON.parse(response);
+  } catch (e) {
   }
 
-  if (jsonData) {    
+  if (jsonData) {
     result = {
       ...result,
       ...jsonData
     };
   } else {
-    result.answer = response;  
-  }  
+    result.answer = response;
+  }
 
   if (result.answer) {
-    result.answer = result.answer.replace(/^["']|["']$/g, '');  
+    result.answer = result.answer.replace(/^["']|["']$/g, '');
   }
 
   return result;
@@ -365,17 +365,17 @@ async function getLinkedChatPeer(channelPeer) {
 
     const linkedChatId = fullChannel.full_chat?.linked_chat_id;
     if (!linkedChatId) throw new Error('No linked chat');
-    
+
     const linkedChat = fullChannel.chats.find(c => c.id === linkedChatId);
     if (!linkedChat) throw new Error('Linked chat not found');
-    
+
     const result = {
       peer: linkedChat,
       access_hash: linkedChat.access_hash
     };
 
     cache.set(channelPeer.id, result);
-  return result;
+    return result;
   } catch (error) {
     console.error('Error getting linked chat:', error);
     throw error;
@@ -396,7 +396,7 @@ async function getLastChannelPost(channelPeer, scanLimit = 20) {
       await mtprotoCall('messages.getDiscussionMessage', {
         peer: getInputPeer(channelPeer),
         msg_id: msg.id,
-      });    
+      });
       // Якщо дискусія існує → це наш пост
       return { channelPostId: msg.id, postDate: msg.date };
     } catch (e) {
@@ -432,15 +432,8 @@ async function findDiscussionRoot(channelPeer, channelPostId) {
 }
 
 async function getCurrentBio() {
-  const res = await mtprotoCall('users.getFullUser', {id: { _: 'inputUserSelf' }});
+  const res = await mtprotoCall('users.getFullUser', { id: { _: 'inputUserSelf' } });
   return res.full_user?.about ?? '';
-}
-
-async function clearBio() {
-  await mtprotoCall('account.updateProfile', { about: 'What a day!' });
-}
-async function restoreBio(bio) {
-  await mtprotoCall('account.updateProfile', { about: bio });
 }
 
 async function withTemporaryClearedBio(action) {
@@ -458,8 +451,8 @@ async function withTemporaryClearedBio(action) {
   try {
     SAVED_BIO = await getCurrentBio();
 
-    if (SAVED_BIO) {
-      await clearBio();
+    if (SAVED_BIO) {      
+      await updateProfile({ bio: 'What a day!' });
       console.log(`🧹 Bio cleared`);
     }
 
@@ -468,7 +461,7 @@ async function withTemporaryClearedBio(action) {
     if (SAVED_BIO) {
       setTimeout(async () => {
         try {
-          await restoreBio(SAVED_BIO);
+          await updateProfile({ bio: SAVED_BIO });
           console.log(`🧬 Bio restored`);
         } catch (err) {
           console.error('❌ Failed to restore bio:', err);
@@ -488,19 +481,19 @@ async function withTemporaryClearedBio(action) {
   }
 }
 
-async function prepareGroups() {  
+async function prepareGroups() {
   const data = readData();
   const ignoreCache = getAccountScopedCache(channelIgnorePeer);
-  for (const group of data) {   
+  for (const group of data) {
     try {
       if (ignoreCache.has(group.groupid)) continue;
-      await getPeerCached(group.groupid);      
+      await getPeerCached(group.groupid);
     } catch (err) {
       ignoreCache.set(group.groupid, true);
-      console.error(`❌ Failed preparing "${group.groupid}"`);      
-    }    
+      console.error(`❌ Failed preparing "${group.groupid}"`);
+    }
   }
-  return data;  
+  return data;
 }
 
 async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '') {
@@ -542,7 +535,7 @@ async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '
       }
     }, parseInt(editDelay, 10) * 1000);
   }
-  
+
   // 3️⃣ Delete message
   const deleteDelay = getConfigItem('TELEGRAM_DELETE_DELAY');
   if (deleteDelay && sentMessageId) {
@@ -565,9 +558,9 @@ async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '
 
 /* -- GROUP POSTING -- */
 async function sendMessage(peer, groupid, message, edition, target, prompt) {
-  try {  
+  try {
     let inputPeer = getInputPeer(peer);
-    
+
     const params = {
       peer: inputPeer,
       message,
@@ -581,7 +574,7 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
         peer: inputPeer,
         limit: 100,
       });
-      
+
       const validMessages = (history.messages || []).filter(
         (m) => m?.id && m._ === 'message'
       );
@@ -589,7 +582,7 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
       if (!validMessages.length) {
         throw new Error('No valid messages to reply to.');
       }
-      
+
       if (target === '$') {
         // last
         targetMessage = validMessages[0];
@@ -599,20 +592,20 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
       } else if (target === '@') {
         // discussion root
         targetMessage = validMessages[validMessages.length - 1];
-      }        
+      }
 
       params.reply_to_msg_id = targetMessage.id;
-      
+
       if (prompt && LLMEnabled()) {
         // handle prompt        
         let jsonPayload;
         if (target == '@') {
           const discussionThread = await getDiscussionThread(inputPeer, targetMessage.id);
           jsonPayload = JSON.stringify(await buildLLMPayload(discussionThread, targetMessage.id), null, 2);
-        }  
-        
+        }
+
         const res = await handlePrompt(prompt, jsonPayload || targetMessage.message);
-                                                                                                                                                                        
+
         if (res.skip) {
           console.log(`Skip sending to ${groupid} due to agent directive`);
           return;
@@ -631,7 +624,7 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
       }
     }
 
-    let sendAsPeer = await getSendAsPeer();    
+    let sendAsPeer = await getSendAsPeer();
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
@@ -639,9 +632,9 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
     // avoid replying to our messages    
     if (targetMessage && params.reply_to_msg_id == targetMessage.id) {
       if (isOurMessage(targetMessage, sendAsPeer)) {
-        throw new Error('Skip replying to our message.');       
-      }                
-    }  
+        throw new Error('Skip replying to our message.');
+      }
+    }
 
     // process message
     await withTemporaryClearedBio(
@@ -656,8 +649,8 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
 }
 
 async function reactToMessage(peer, groupid, reaction, target) {
-  try {   
-    let inputPeer = getInputPeer(peer); 
+  try {
+    let inputPeer = getInputPeer(peer);
     const history = await mtprotoCall('messages.getHistory', {
       peer: inputPeer,
       limit: 100,
@@ -674,7 +667,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
     let targetMessage;
     if (target === '$') {
       targetMessage = validMessages[0];
-    } else if (target === '*')  {
+    } else if (target === '*') {
       targetMessage = validMessages[getRandomNumber(0, validMessages.length - 1)];
     } else {
       throw new Error(`Not supported target ${target}.`);
@@ -687,15 +680,15 @@ async function reactToMessage(peer, groupid, reaction, target) {
       big: false,
     };
 
-    let sendAsPeer = await getSendAsPeer();    
+    let sendAsPeer = await getSendAsPeer();
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
 
     // avoid reacting to our messages
     if (isOurMessage(targetMessage, sendAsPeer)) {
-      throw new Error('Skip reacting to our message.');       
-    } 
+      throw new Error('Skip reacting to our message.');
+    }
 
     await mtprotoCall('messages.sendReaction', params);
 
@@ -724,7 +717,7 @@ async function buildLLMPayload(messages, discussionRootId) {
     ourMessages = messages.filter(
       m => m.from_id?.user_id === SELF_USER_ID
     );
-  }  
+  }
 
   const repliesToUs = messages
     .filter(m =>
@@ -827,8 +820,8 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
     }
 
     // 5️⃣ Обробка target
-    let targetMessage;    
-    if (target === '$' || target === '*') { 
+    let targetMessage;
+    if (target === '$' || target === '*') {
       // Беремо історію коментарів
       const history = await mtprotoCall('messages.getHistory', {
         peer: {
@@ -846,7 +839,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
         m.reply_to &&
         m.reply_to.reply_to_msg_id === discussionRoot.id
       );
-      
+
       if (!postComments.length) {
         throw new Error('No comments found for post');
       }
@@ -855,13 +848,13 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
         targetMessage = postComments[0];
         console.log(`💬 Last comment ID: ${targetMessage.id}`);
       } else if (target === '*') {
-        targetMessage = postComments[getRandomNumber(0, postComments.length - 1)];                
+        targetMessage = postComments[getRandomNumber(0, postComments.length - 1)];
         console.log(`🎲 Random comment ID: ${targetMessage.id}`);
-      }  
+      }
     } else {
       targetMessage = discussionRoot;
       console.log(`💬 Root ID: ${targetMessage.id}`);
-    }        
+    }
 
     console.log(`🎯 Replying to message ID: ${targetMessage.id}`);
 
@@ -879,12 +872,12 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
       ).toString(),
     };
 
-    if (prompt && LLMEnabled()) {     
+    if (prompt && LLMEnabled()) {
       let jsonPayload;
       if (target == '@') {
         const discussionThread = await getDiscussionThread(getInputPeer(linkedChat.peer), discussionRoot.id);
         jsonPayload = JSON.stringify(await buildLLMPayload(discussionThread, discussionRoot.id), null, 2);
-      }    
+      }
 
       const res = await handlePrompt(prompt, jsonPayload || targetMessage.message);
 
@@ -897,7 +890,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
         console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
         return;
       }
-      
+
       if (res.message_id) {
         params.reply_to_msg_id = res.message_id;
       }
@@ -905,17 +898,17 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
       params.message = res.answer;
     }
 
-    let sendAsPeer = await getSendAsPeer();    
+    let sendAsPeer = await getSendAsPeer();
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
-    } 
+    }
 
     // avoid replying to our messages
     if (params.reply_to_msg_id == targetMessage.id) {
       if (isOurMessage(targetMessage, sendAsPeer)) {
-        throw new Error('Skip replying to our message.');       
-      } 
-    }    
+        throw new Error('Skip replying to our message.');
+      }
+    }
 
     // 7️⃣ process message    
     await withTemporaryClearedBio(
@@ -942,7 +935,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     }
 
     /** 3️⃣ Отримуємо ОСТАННІЙ ПОСТ каналу */
-    const { channelPostId } = await getLastChannelPost(channelPeer);    
+    const { channelPostId } = await getLastChannelPost(channelPeer);
     console.log(`📰 Last channel post ID: ${channelPostId}`);
 
     // 4️⃣ Знаходимо discussion root для ОСТАННЬОГО поста
@@ -980,7 +973,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       } else if (target === '*') {
         targetMessage = comments[getRandomNumber(0, comments.length - 1)];
         console.log(`💬 Random comment ID: ${targetMessage.id}`);
-      } 
+      }
     } else {
       targetMessage = discussionRoot;
       console.log(`💬 Root ID: ${targetMessage.id}`);
@@ -999,15 +992,15 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
       big: false
     };
 
-    let sendAsPeer = await getSendAsPeer();    
+    let sendAsPeer = await getSendAsPeer();
     if (sendAsPeer) {
       params.send_as = getSendAsChannel(sendAsPeer);
     }
 
     // avoid reacting to our messages    
     if (isOurMessage(targetMessage, sendAsPeer)) {
-      throw new Error('Skip reacting to our message.');       
-    } 
+      throw new Error('Skip reacting to our message.');
+    }
 
     /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', params);
@@ -1020,7 +1013,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
 }
 
 async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction) {
-  let sendAsPeer = await getSendAsPeer();  
+  let sendAsPeer = await getSendAsPeer();
   await mtprotoCall('messages.sendReaction', {
     peer: {
       _: 'inputPeerChannel',
@@ -1058,7 +1051,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     if (res.skip) {
       console.log(`Skip sending to ${channelGroupId} due to agent directive`);
       return;
-    } 
+    }
 
     if (!res.answer) {
       console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
@@ -1068,7 +1061,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     text = res.answer;
   }
 
-  let sendAsPeer = await getSendAsPeer();  
+  let sendAsPeer = await getSendAsPeer();
 
   const sendParams = {
     peer: {
@@ -1096,7 +1089,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
 async function handleDebouncedPost(
   channelPeer,
   groupConfig,
-  postId  
+  postId
 ) {
   const { groupid, comment, edition, reaction, prompt } = groupConfig;
 
@@ -1109,7 +1102,7 @@ async function handleDebouncedPost(
       postId,
       comment,
       edition,
-      prompt      
+      prompt
     );
   }
 
@@ -1118,7 +1111,7 @@ async function handleDebouncedPost(
       channelPeer,
       groupid,
       postId,
-      reaction      
+      reaction
     );
   }
 }
@@ -1127,23 +1120,23 @@ function scheduleDebouncedPost(
   channelPeer,
   groupConfig,
   postId,
-  postDate  
+  postDate
 ) {
 
   const key = `${channelPeer.id}:${groupConfig.id}`;
   const lastSeenCache = getAccountScopedCache(lastSeenPost);
   const debounceCache = getAccountScopedCache(channelDebounce);
 
-  const lastSeen = lastSeenCache.get(key);  
-  if (lastSeen && postId <= lastSeen) return;    
-  lastSeenCache.set(key, postId);  
+  const lastSeen = lastSeenCache.get(key);
+  if (lastSeen && postId <= lastSeen) return;
+  lastSeenCache.set(key, postId);
 
   const existing = debounceCache.get(key);
   if (existing?.timer) {
     clearTimeout(existing.timer);
   }
 
-  const now = Math.floor(Date.now() / 1000); 
+  const now = Math.floor(Date.now() / 1000);
   const elapsedSec = now - postDate;
   const elapsedMin = Math.floor(elapsedSec / 60);
   const elapsedHours = Math.floor(elapsedSec / 3600);
@@ -1154,7 +1147,7 @@ function scheduleDebouncedPost(
       await handleDebouncedPost(
         channelPeer,
         groupConfig,
-        postId        
+        postId
       );
     } catch (err) {
       console.error('❌ Debounced post handler error:', err);
@@ -1163,11 +1156,11 @@ function scheduleDebouncedPost(
     }
   }, parseInt(postDebounce, 10) * 1000);
 
-  debounceCache.set(key, { postId, timer });   
-  
+  debounceCache.set(key, { postId, timer });
+
   console.log(
     `📰 Scheduled reply in ${groupConfig.groupid} to post ID ${postId} created ${elapsedSec}s (~${elapsedMin}m, ~${elapsedHours}h) ago`
-  );  
+  );
 }
 
 async function pollChannelsForNewPosts() {
@@ -1184,7 +1177,7 @@ async function pollChannelsForNewPosts() {
       const { peer } = await getPeerCached(groupid);
 
       if (peer._ !== 'channel') continue;
-      
+
       const { channelPostId, postDate } = await getLastChannelPost(peer);
 
       const maxPostAge = parseInt(getConfigItem('TELEGRAM_NEW_POST_MAX_AGE') || '30', 10);
@@ -1193,7 +1186,7 @@ async function pollChannelsForNewPosts() {
         continue;
       }
 
-      scheduleDebouncedPost(peer, group, channelPostId, postDate);      
+      scheduleDebouncedPost(peer, group, channelPostId, postDate);
     }
   } catch (err) {
     console.error('❌ Polling error:', err);
@@ -1274,9 +1267,9 @@ async function pollPrivateMessages() {
   }
 }
 
-async function processGroups(requestCode) {  
-  try {        
-    await authenticate(requestCode);  
+async function processGroups(requestCode) {
+  try {
+    await authenticate(requestCode);
 
     // Warm up self/profile and group membership for all accounts before processing
     if (isMultiAccountMode()) {
@@ -1292,19 +1285,19 @@ async function processGroups(requestCode) {
       await initSelf();
       await prepareGroups();
     }
-    
+
     const pmInterval = getConfigItem('TELEGRAM_PM_POLL_INTERVAL') || '30';
     pmTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollPrivateMessages();
     }, parseInt(pmInterval, 10) * 1000);
-      
+
     const pollIterval = getConfigItem('TELEGRAM_CH_POLL_INTERVAL') || '20';
     pollTimer = setInterval(() => {
       if (!getIsRunning()) return;
       pollChannelsForNewPosts();
-    }, parseInt(pollIterval, 10) * 1000);  
-    
+    }, parseInt(pollIterval, 10) * 1000);
+
     while (getIsRunning()) {
       const data = await prepareGroups();
 
@@ -1312,7 +1305,7 @@ async function processGroups(requestCode) {
       const throttlingRate =
         Math.min(100, Math.max(0, parseInt(String(throttlingRateRaw), 10) || 0));
 
-      for (const group of data) {        
+      for (const group of data) {
         const { groupid, comment, edition, reaction, prompt, target } = group;
         console.log(`\n⚙️ Processing ${groupid}`);
 
@@ -1328,7 +1321,7 @@ async function processGroups(requestCode) {
           }
         }
 
-        if (target == '^') continue;   
+        if (target == '^') continue;
 
         let peer;
         try {
@@ -1341,25 +1334,25 @@ async function processGroups(requestCode) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment || prompt) await sendMessage(peer, groupid, comment, edition, target, prompt);            
-          if (reaction) await reactToMessage(peer, groupid, reaction, target);                     
-        } else if (type == 'channel') {          
-          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, edition, prompt);                
-          if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction);                           
-        }      
+          if (comment || prompt) await sendMessage(peer, groupid, comment, edition, target, prompt);
+          if (reaction) await reactToMessage(peer, groupid, reaction, target);
+        } else if (type == 'channel') {
+          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, edition, prompt);
+          if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction);
+        }
 
       }
 
       console.log(`🛌 Go to sleep`);
       const iterationDelay = getConfigItem('TELEGRAM_ITERATION_DELAY') || '60';
       await sleep(parseInt(iterationDelay, 10) * 1000);
-    }  
+    }
   } catch (err) {
     console.log(err);
   } finally {
     setIsRunning(false);
     clearInterval(pmTimer);
-    clearInterval(pollTimer);    
+    clearInterval(pollTimer);
     for (const m of lastSeenPost.values()) m.clear();
     lastSeenPost.clear();
     for (const m of channelDebounce.values()) {
@@ -1370,10 +1363,71 @@ async function processGroups(requestCode) {
     }
     channelDebounce.clear();
     console.log(`exiting`);
-  }    
+  }
+}
+
+async function getProfile() {
+  const phone = getCurrentPhone() || '';
+  const list = getAccountList();
+  if (!list.length) {
+    return { loggedIn: false, phone, username: '', bio: '', hasPhoto: false };
+  }
+  try {
+    const res = await mtprotoCall('users.getFullUser', { id: { _: 'inputUserSelf' } });
+    const user = res.users && res.users[0];
+    const fullUser = res.full_user;
+    if (!user) {
+      return { loggedIn: true, phone, username: '', bio: '', hasPhoto: false };
+    }
+    const username = user.username || '';
+    const bio = (fullUser && fullUser.about) || '';
+    const hasPhoto = Boolean(user.photo && user.photo._ === 'userProfilePhoto');
+    return { loggedIn: true, phone, username, bio, hasPhoto };
+  } catch (err) {
+    const msg = err.error_message || err.message || '';
+    if (msg === 'AUTH_KEY_UNREGISTERED' || msg.includes('SESSION') || msg.includes('auth')) {
+      return { loggedIn: false, phone, username: '', bio: '', hasPhoto: false };
+    }
+    throw err;
+  }
+}
+
+async function getProfilePhotoBuffer() {
+  try {
+    const res = await mtprotoCall('users.getFullUser', { id: { _: 'inputUserSelf' } });
+    const user = res.users && res.users[0];
+    if (!user || !user.photo || user.photo._ !== 'userProfilePhoto') return null;
+    const photoId = user.photo.photo_id;
+    const location = {
+      _: 'inputPeerPhotoFileLocation',
+      peer: { _: 'inputPeerSelf' },
+      photo_id: photoId,
+      big: true,
+    };
+    const file = await mtprotoCall('upload.getFile', {
+      location,
+      offset: 0,
+      limit: 1024 * 1024,
+    });
+    return file.bytes ? Buffer.from(file.bytes) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function updateProfile({ username, bio }) {
+  if (bio !== undefined) {
+    await mtprotoCall('account.updateProfile', { about: bio || '' });
+  }
+  if (username !== undefined) {
+    await mtprotoCall('account.updateUsername', { username: (username || '').trim() });
+  }
 }
 
 module.exports.processGroups = processGroups;
 module.exports.getTotalSent = getTotalSent;
 module.exports.getIsRunning = getIsRunning;
 module.exports.setIsRunning = setIsRunning;
+module.exports.getProfile = getProfile;
+module.exports.getProfilePhotoBuffer = getProfilePhotoBuffer;
+module.exports.updateProfile = updateProfile;

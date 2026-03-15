@@ -22,6 +22,9 @@ const {
   getIsRunning,
   setIsRunning,
   getTotalSent,
+  getProfile,
+  getProfilePhotoBuffer,
+  updateProfile,
 } = require('./src/telegram/poster');
 const { getDataDir } = require('./src/dataDir');
 
@@ -182,6 +185,41 @@ app.post('/api/accounts/:phone/logout', (req, res) => {
     res.status(204).end();
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ----- Profile (active account) -----
+app.get('/api/profile', async (req, res) => {
+  try {
+    const profile = await getProfile();
+    res.json(profile);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/profile/photo', async (req, res) => {
+  try {
+    const buffer = await getProfilePhotoBuffer();
+    if (!buffer || buffer.length === 0) {
+      return res.status(404).end();
+    }
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(buffer);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/profile', async (req, res) => {
+  try {
+    const { username, bio } = req.body || {};
+    await updateProfile({ username, bio });
+    const profile = await getProfile();
+    res.json(profile);
+  } catch (e) {
+    res.status(400).json({ error: e.message || e.error_message || String(e) });
   }
 });
 
