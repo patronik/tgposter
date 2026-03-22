@@ -1324,6 +1324,8 @@ async function processGroups(requestCode) {
                 2
               )})`
             );
+            const apiDelay = getConfigItem('TELEGRAM_API_DELAY') || '10';
+            await sleep(parseInt(apiDelay, 10) * 1000);
             continue;
           }
         }
