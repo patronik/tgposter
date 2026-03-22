@@ -96,3 +96,5 @@ out/
 tools/
 
 config.json
+
+data/

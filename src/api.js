@@ -74,7 +74,7 @@ window.api = {
           callback(r.phone);
         }
       } catch (_) {}
-    }, 500);
+    }, 1000);
     return () => clearInterval(interval);
   },
 };

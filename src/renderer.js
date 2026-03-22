@@ -17,7 +17,7 @@ setInterval(
       actionBtn.innerHTML = 'Старт';
     }   
   },
-  100
+  5000
 );
 
 setInterval(
@@ -25,7 +25,7 @@ setInterval(
     const messagesSent = await window.api.getTotalSent();  
     document.getElementById('messages_sent').innerText = messagesSent;
   },
-  500
+  5000
 );
 
 async function validateConfig() {  
@@ -68,8 +68,7 @@ actionBtn.onclick = async () => {
 window.api.onCodeRequest((phone) => {
   waitingForCode = true;
   const forPhone = phone ? ` для ${phone}` : '';
-  appStatus.innerHTML = `<b>Введіть код${forPhone}</b> та натисніть «Надіслати код»`;
-  codeInput.value = '';
+  appStatus.innerHTML = `<b>Введіть код${forPhone}</b> та натисніть «Надіслати код»`;  
   codeInput.focus();
 });
 
