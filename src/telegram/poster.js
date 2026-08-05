@@ -1305,6 +1305,10 @@ async function processGroups(requestCode) {
       const throttlingRate =
         Math.min(100, Math.max(0, parseInt(String(throttlingRateRaw), 10) || 0));
 
+      const postingDelayRaw = getConfigItem('TELEGRAM_POSTING_DELAY') || '0';
+      const postingDelay = parseInt(String(postingDelayRaw), 10) || 0;
+
+
       for (const group of data) {
         const { groupid, comment, edition, reaction, prompt, target } = group;
         console.log(`\n⚙️ Processing ${groupid}`);
@@ -1342,6 +1346,11 @@ async function processGroups(requestCode) {
           if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, edition, prompt);
           if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction);
         }
+
+	if (postingDelay > 0) {
+            console.log(`Sleep for ${postingDelay * 100} seconds...`);
+	    await sleep(postingDelay * 1000);
+	}
 
       }
 
