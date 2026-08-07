@@ -50,6 +50,7 @@ window.api = {
   // legacy aliases
   getIsRunning: async () => (await request('GET', '/api/status')).isRunning,
   getTotalSent: async () => (await request('GET', '/api/status')).totalSent,
+  getSentByGroup: async () => (await request('GET', '/api/status')).sentByGroup || {},
   exportData: async () => {
     const res = await fetch(`${API_BASE}/api/export`);
     if (!res.ok) throw new Error(await res.text());

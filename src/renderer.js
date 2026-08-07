@@ -22,11 +22,22 @@ setInterval(
 
 setInterval(
   async () => {
-    const messagesSent = await window.api.getTotalSent();  
-    document.getElementById('messages_sent').innerText = messagesSent;
+    try {
+      const status = await window.api.getStatus();
+      document.getElementById('messages_sent').innerText = status.totalSent ?? 0;
+      updateSentCounts(status.sentByGroup || {});
+    } catch (_) {}
   },
   5000
 );
+
+function updateSentCounts(sentByGroup) {
+  document.querySelectorAll('#list tr[data-groupid]').forEach((tr) => {
+    const groupid = tr.getAttribute('data-groupid');
+    const cell = tr.querySelector('.sent-count');
+    if (cell) cell.textContent = sentByGroup[groupid] || 0;
+  });
+}
 
 async function validateConfig() {  
   const config = await window.api.getConfig();
@@ -138,11 +149,16 @@ function renderTarget(key) {
 }
 
 async function load() {  
-  const items = await window.api.getItems();
+  const [items, sentByGroup] = await Promise.all([
+    window.api.getItems(),
+    window.api.getSentByGroup().catch(() => ({})),
+  ]);
   const tbody = document.getElementById('list');
   tbody.innerHTML = '';
   items.forEach(i => {
     const tr = document.createElement('tr');
+    tr.setAttribute('data-groupid', i.groupid);
+    const sent = sentByGroup[i.groupid] || 0;
     tr.innerHTML = `
       <td>${i.groupid}</td>
       <td>${i.comment}</td> 
@@ -150,6 +166,7 @@ async function load() {
       <td>${i.reaction}</td>
       <td>${(i.prompt || '').slice(0, 100)}</td>
       <td>${renderTarget(i.target)}</td>
+      <td class="sent-count">${sent}</td>
       <td>                
         <div class="btn_container">
           <div><button onclick="edit('${i.id}')"><span class="material-icons">edit</span></button></div>

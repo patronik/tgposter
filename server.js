@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('node:path');
 const fs = require('fs');
+const crypto = require('node:crypto');
 const {
   readData,
   writeData,
@@ -22,6 +23,7 @@ const {
   getIsRunning,
   setIsRunning,
   getTotalSent,
+  getSentByGroup,
   getProfile,
   getProfilePhotoBuffer,
   updateProfile,
@@ -30,6 +32,8 @@ const { getDataDir } = require('./src/dataDir');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER;
+const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD;
 
 // Pending Telegram auth code (replaces Electron IPC request-code / submit-code)
 let pendingCode = { resolve: null, phone: null };
@@ -41,7 +45,44 @@ function requestCode(phone) {
   });
 }
 
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+function basicAuth(req, res, next) {
+  if (!BASIC_AUTH_USER || !BASIC_AUTH_PASSWORD) return next();
+
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Basic ')) {
+    res.set('WWW-Authenticate', 'Basic realm="TGPoster"');
+    return res.status(401).send('Authentication required');
+  }
+
+  let decoded;
+  try {
+    decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+  } catch {
+    res.set('WWW-Authenticate', 'Basic realm="TGPoster"');
+    return res.status(401).send('Invalid credentials');
+  }
+
+  const sep = decoded.indexOf(':');
+  const user = sep === -1 ? decoded : decoded.slice(0, sep);
+  const pass = sep === -1 ? '' : decoded.slice(sep + 1);
+
+  if (safeEqual(user, BASIC_AUTH_USER) && safeEqual(pass, BASIC_AUTH_PASSWORD)) {
+    return next();
+  }
+
+  res.set('WWW-Authenticate', 'Basic realm="TGPoster"');
+  return res.status(401).send('Invalid credentials');
+}
+
 // Middleware
+app.use(basicAuth);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'src')));
 
@@ -259,7 +300,11 @@ app.post('/api/auth/logout', (req, res) => {
 // ----- Status & control -----
 app.get('/api/status', (req, res) => {
   try {
-    res.json({ isRunning: getIsRunning(), totalSent: getTotalSent() });
+    res.json({
+      isRunning: getIsRunning(),
+      totalSent: getTotalSent(),
+      sentByGroup: getSentByGroup(),
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -325,16 +370,21 @@ app.post('/api/import', (req, res) => {
   }
 });
 
+function startServer() {
+  if (!BASIC_AUTH_USER || !BASIC_AUTH_PASSWORD) {
+    console.warn(
+      'WARNING: BASIC_AUTH_USER / BASIC_AUTH_PASSWORD not set — HTTP Basic Auth is disabled'
+    );
+  }
+  app.listen(PORT, () => {
+    console.log(`Tgposter server at http://localhost:${PORT}`);
+  });
+}
+
 // Load remote config on startup
 loadRemote()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Tgposter server at http://localhost:${PORT}`);
-    });
-  })
+  .then(startServer)
   .catch((err) => {
     console.error('Failed to load remote config:', err);
-    app.listen(PORT, () => {
-      console.log(`Tgposter server at http://localhost:${PORT}`);
-    });
+    startServer();
   });

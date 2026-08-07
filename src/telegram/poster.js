@@ -17,6 +17,9 @@ let IS_RUNNING = false;
 
 let TOTAL_SENT = 0;
 
+/** @type {Record<string, number>} messages sent per group/channel id */
+let SENT_BY_GROUP = {};
+
 // Per-account caches: Map<accountKey, Map<...>> so multi-account mode does not share state
 const lastSeenPost = new Map();
 const channelDebounce = new Map();
@@ -44,6 +47,10 @@ function setIsRunning(value) {
 
 function getTotalSent() {
   return TOTAL_SENT;
+}
+
+function getSentByGroup() {
+  return { ...SENT_BY_GROUP };
 }
 /* -- STATE END -- */
 
@@ -73,8 +80,12 @@ async function mtprotoCall(method, data, retry = 0) {
   }
 }
 
-function onMessageSent() {
+function onMessageSent(groupid) {
   TOTAL_SENT++;
+  if (groupid) {
+    const key = String(groupid);
+    SENT_BY_GROUP[key] = (SENT_BY_GROUP[key] || 0) + 1;
+  }
   if (isMultiAccountMode()) {
     const frequency = Math.max(1, parseInt(String(getConfigItem('ACCOUNT_CHANGE_FREQUENCY') || '1'), 10) || 1);
     // frequency 1 => change after every message; frequency n => change every n messages
@@ -641,7 +652,7 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
       () => sendAndMaybeEditAndMaybeDelete(params, edition, `message in ${groupid}`)
     );
 
-    onMessageSent();
+    onMessageSent(groupid);
     console.log(`✅ Message sent to ${groupid}`);
   } catch (error) {
     console.error(`❌ Error sending to ${groupid}:`, error);
@@ -692,7 +703,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
 
     await mtprotoCall('messages.sendReaction', params);
 
-    onMessageSent();
+    onMessageSent(groupid);
     console.log(`✅ Reacted to message ${params.msg_id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
@@ -915,7 +926,7 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
       () => sendAndMaybeEditAndMaybeDelete(params, edition, `comment in ${channelGroupId}`)
     );
 
-    onMessageSent();
+    onMessageSent(channelGroupId);
     console.log(`✅ Comment sent (reply_to=${params.reply_to_msg_id}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
@@ -1005,7 +1016,7 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', params);
 
-    onMessageSent();
+    onMessageSent(channelGroupId);
     console.log(`✅ Reacted to comment ${params.msg_id} in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ Comment react error:', error);
@@ -1025,7 +1036,7 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   });
 
-  onMessageSent();
+  onMessageSent(channelGroupId);
   console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
 
@@ -1080,7 +1091,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     () => sendAndMaybeEditAndMaybeDelete(sendParams, edition, `comment in ${channelGroupId}`)
   );
 
-  onMessageSent();
+  onMessageSent(channelGroupId);
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
 }
 
@@ -1437,6 +1448,7 @@ async function updateProfile({ username, bio }) {
 
 module.exports.processGroups = processGroups;
 module.exports.getTotalSent = getTotalSent;
+module.exports.getSentByGroup = getSentByGroup;
 module.exports.getIsRunning = getIsRunning;
 module.exports.setIsRunning = setIsRunning;
 module.exports.getProfile = getProfile;

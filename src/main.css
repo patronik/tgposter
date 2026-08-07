@@ -46,20 +46,28 @@ h2 {
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 5px;
+  gap: 12px;
   margin-bottom: 10px;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
+  min-width: 0;
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
-  width: 350px;
+  width: 100%;
+  max-width: 350px;
+  margin-inline: auto;
+}
+
+.form-group textarea {
+  min-height: 80px;
+  resize: vertical;
 }
 
 label {
@@ -75,6 +83,7 @@ input, textarea, select {
   border-radius: var(--radius);
   font-size: 1rem;
   transition: border-color 0.2s;
+  max-width: 100%;
 }
 
 input:focus, textarea:focus, select:focus {
@@ -200,17 +209,28 @@ button:disabled {
 }
 
 .controls {
-  display: flex;  
-  justify-content: center; 
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
 
 .controls div {
-  margin: 5px;
+  margin: 0;
+}
+
+.controls input {
+  width: 100%;
+  min-width: 140px;
+  max-width: 220px;
 }
 
 .button-group {
-  display: flex;  
-  justify-content: center; 
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
 }
 
 .button-group div {
@@ -226,6 +246,11 @@ button:disabled {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px; 
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .status-bar .column {
@@ -259,16 +284,71 @@ button:disabled {
 }
 
 @media (max-width: 768px) {
+  body {
+    padding: 10px;
+  }
+
+  .container {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
+    gap: 14px;
   }
-  
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    max-width: none;
+    margin-inline: 0;
+    font-size: 16px; /* avoid iOS focus zoom */
+  }
+
+  .button-group button,
+  .controls button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .status-bar {
+    grid-template-columns: 1fr;
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .controls {
+    width: 100%;
+  }
+
+  .controls input {
+    max-width: none;
+  }
+
   .data-grid {
     font-size: 0.9rem;
+    min-width: 640px;
   }
-  
+
   .data-grid th,
   .data-grid td {
     padding: 10px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 8px;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  .container > a {
+    display: inline-block;
+    margin: 2px 10px 2px 0;
+    padding: 6px 0;
   }
 }
