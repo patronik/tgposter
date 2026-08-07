@@ -1348,7 +1348,7 @@ async function processGroups(requestCode) {
         }
 
 	if (postingDelay > 0) {
-            console.log(`Sleep for ${postingDelay * 100} seconds...`);
+            console.log(`Sleep for ${postingDelay} seconds...`);
 	    await sleep(postingDelay * 1000);
 	}
 
