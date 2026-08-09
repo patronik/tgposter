@@ -1,7 +1,16 @@
 const { readData, getConfigItem } = require('../config');
 const { getCurrentClient, getCurrentPhone, advanceToNextAccount, authenticate, isMultiAccountMode, getAccountList, setCurrentIndex } = require('./mtproto');
 const { sleep, getRandomNumber } = require('../utils');
-const { queryLLM, LLMEnabled } = require('../ai');
+const {
+  queryLLM,
+  LLMEnabled,
+  buildAiContext,
+  buildPmAiContext,
+  resolvePmMode,
+  getPmPrompt,
+  shouldOccasionallySkip,
+  maybeAiReplyDelay,
+} = require('../ai');
 
 /* -- STATE -- */
 let SELF_USER_ID = null;
@@ -36,6 +45,9 @@ function getAccountScopedCache(store) {
 
 let pmTimer = null;
 let pollTimer = null;
+
+/** @type {Map<string, number>} last incoming PM message id we already handled per user */
+const lastHandledPmByUser = new Map();
 
 function getIsRunning() {
   return IS_RUNNING;
@@ -246,14 +258,21 @@ function getPeerType(peer) {
   return 'unknown';
 }
 
-async function handlePrompt(prompt, input) {
+async function handlePrompt(prompt, input, aiContext = null) {
   let result = {
     skip: false,
     answer: "",
     message_id: null
   };
 
-  const response = await queryLLM(`${prompt}\nINPUT:\n${input}`);
+  if (shouldOccasionallySkip()) {
+    console.log('Skip sending due to AI_SKIP_PROBABILITY');
+    return { ...result, skip: true };
+  }
+
+  await maybeAiReplyDelay(sleep);
+
+  const response = await queryLLM(`${prompt}\nINPUT:\n${input}`, 2, aiContext);
   console.log(`LLM: ${response}`);
 
   let jsonData;
@@ -276,6 +295,108 @@ async function handlePrompt(prompt, input) {
   }
 
   return result;
+}
+
+function getMessageSenderId(message) {
+  if (message?.from_id?.user_id != null) return `user:${message.from_id.user_id}`;
+  if (message?.from_id?.channel_id != null) return `channel:${message.from_id.channel_id}`;
+  return 'unknown';
+}
+
+function isOursInThread(message, sendAsPeer) {
+  if (sendAsPeer) {
+    return message?.from_id?.channel_id === sendAsPeer.id;
+  }
+  return message?.from_id?.user_id === SELF_USER_ID;
+}
+
+function buildThreadTree(messages, discussionRootId, sendAsPeer) {
+  const nodes = new Map();
+
+  for (const m of messages) {
+    const parentId =
+      m.id === discussionRootId
+        ? null
+        : (m.reply_to?.reply_to_msg_id ?? discussionRootId);
+
+    nodes.set(m.id, {
+      id: m.id,
+      text: m.message || '',
+      parent_id: parentId,
+      from: getMessageSenderId(m),
+      is_ours: isOursInThread(m, sendAsPeer),
+      children: [],
+    });
+  }
+
+  for (const node of nodes.values()) {
+    if (node.parent_id != null && nodes.has(node.parent_id)) {
+      nodes.get(node.parent_id).children.push(node);
+    }
+  }
+
+  for (const node of nodes.values()) {
+    node.children.sort((a, b) => a.id - b.id);
+  }
+
+  return nodes.get(discussionRootId) || null;
+}
+
+function flattenThreadNodes(rootNode) {
+  if (!rootNode) return [];
+  const out = [];
+  const walk = (node) => {
+    out.push({
+      id: node.id,
+      text: node.text,
+      parent_id: node.parent_id,
+      from: node.from,
+      is_ours: node.is_ours,
+    });
+    for (const child of node.children || []) walk(child);
+  };
+  walk(rootNode);
+  return out;
+}
+
+function pickSuggestedTarget(messages, root, ourMessages, unansweredToUs, replyStrategy) {
+  const nonOurs = messages.filter((m) => !ourMessages.some((om) => om.id === m.id));
+
+  switch (replyStrategy) {
+    case 'root':
+      return { target: root, reason: 'root strategy' };
+    case 'unanswered_to_us':
+      if (!unansweredToUs.length) {
+        return { target: null, reason: 'no unanswered replies to us', skip: true };
+      }
+      return {
+        target: messages.find((m) => m.id === unansweredToUs[0].id) || null,
+        reason: 'unanswered reply to our message',
+      };
+    case 'any_thread':
+      return { target: null, reason: 'llm chooses any thread message', llmChooses: true };
+    case 'last': {
+      const latest = [...nonOurs].sort((a, b) => b.id - a.id)[0] || root;
+      return { target: latest, reason: 'latest non-ours message' };
+    }
+    case 'random': {
+      if (!nonOurs.length) return { target: root, reason: 'fallback root' };
+      const picked = nonOurs[getRandomNumber(0, nonOurs.length - 1)];
+      return { target: picked, reason: 'random non-ours message' };
+    }
+    case 'auto':
+    default:
+      if (!ourMessages.length) {
+        return { target: root, reason: 'auto: no our messages yet' };
+      }
+      if (unansweredToUs.length) {
+        return {
+          target: messages.find((m) => m.id === unansweredToUs[0].id) || root,
+          reason: 'auto: newest unanswered reply to us',
+        };
+      }
+      return { target: root, reason: 'auto: fallback to root' };
+  }
 }
 
 async function ensureMembership(groupidOrInvite) {
@@ -568,9 +689,10 @@ async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '
 }
 
 /* -- GROUP POSTING -- */
-async function sendMessage(peer, groupid, message, edition, target, prompt) {
+async function sendMessage(peer, groupid, message, edition, target, prompt, aiContext = null) {
   try {
     let inputPeer = getInputPeer(peer);
+    const ctx = aiContext || buildAiContext({});
 
     const params = {
       peer: inputPeer,
@@ -612,10 +734,24 @@ async function sendMessage(peer, groupid, message, edition, target, prompt) {
         let jsonPayload;
         if (target == '@') {
           const discussionThread = await getDiscussionThread(inputPeer, targetMessage.id);
-          jsonPayload = JSON.stringify(await buildLLMPayload(discussionThread, targetMessage.id), null, 2);
+          const payload = await buildLLMPayload(
+            discussionThread,
+            targetMessage.id,
+            ctx.replyStrategy
+          );
+          if (payload.skip_suggested) {
+            console.log(`Skip sending to ${groupid}: ${payload.suggested_reason}`);
+            return;
+          }
+          if (payload.target?.id) {
+            params.reply_to_msg_id = payload.target.id;
+            targetMessage =
+              discussionThread.find((m) => m.id === payload.target.id) || targetMessage;
+          }
+          jsonPayload = JSON.stringify(payload, null, 2);
         }
 
-        const res = await handlePrompt(prompt, jsonPayload || targetMessage.message);
+        const res = await handlePrompt(prompt, jsonPayload || targetMessage.message, ctx);
 
         if (res.skip) {
           console.log(`Skip sending to ${groupid} due to agent directive`);
@@ -714,21 +850,12 @@ async function reactToMessage(peer, groupid, reaction, target) {
 
 /* -- CHANNEL CHAT POSTING -- */
 
-async function buildLLMPayload(messages, discussionRootId) {
+async function buildLLMPayload(messages, discussionRootId, replyStrategy = 'auto') {
   const root = messages.find(m => m.id === discussionRootId);
   if (!root) throw new Error('Root message not found');
 
-  let ourMessages = [];
   const sendAsPeer = await getSendAsPeer();
-  if (sendAsPeer) {
-    ourMessages = messages.filter(
-      m => m.from_id?.channel_id === sendAsPeer.id
-    );
-  } else {
-    ourMessages = messages.filter(
-      m => m.from_id?.user_id === SELF_USER_ID
-    );
-  }
+  const ourMessages = messages.filter((m) => isOursInThread(m, sendAsPeer));
 
   const repliesToUs = messages
     .filter(m =>
@@ -738,41 +865,64 @@ async function buildLLMPayload(messages, discussionRootId) {
     .map(m => ({
       id: m.id,
       text: m.message || "",
-      reply_to_our_message_id: m.reply_to.reply_to_msg_id
+      parent_id: m.reply_to.reply_to_msg_id,
+      reply_to_our_message_id: m.reply_to.reply_to_msg_id,
+      is_ours: isOursInThread(m, sendAsPeer),
     }))
     .sort((a, b) => b.id - a.id);
 
-  let target;
+  // Replies to us that we have not answered yet (no our message with parent = that reply)
+  const unansweredToUs = repliesToUs.filter(
+    (reply) => !ourMessages.some((om) => om.reply_to?.reply_to_msg_id === reply.id)
+  );
 
-  if (!ourMessages.length) {
-    target = root;
-  } else if (repliesToUs.length) {
-    target = messages.find(m => m.id === repliesToUs[0].id);
-  } else {
-    target = root;
-  }
+  const suggestion = pickSuggestedTarget(
+    messages,
+    root,
+    ourMessages,
+    unansweredToUs,
+    replyStrategy
+  );
+
+  const tree = buildThreadTree(messages, discussionRootId, sendAsPeer);
+  const flat = flattenThreadNodes(tree);
 
   return {
+    reply_strategy: replyStrategy,
+    skip_suggested: Boolean(suggestion.skip),
+    suggested_reason: suggestion.reason,
+    llm_chooses_target: Boolean(suggestion.llmChooses),
     root: {
       id: root.id,
-      text: root.message || ""
+      text: root.message || "",
+      from: getMessageSenderId(root),
     },
-    target: {
-      id: target.id,
-      text: target.message || ""
-    },
+    target: suggestion.target
+      ? {
+          id: suggestion.target.id,
+          text: suggestion.target.message || "",
+          from: getMessageSenderId(suggestion.target),
+        }
+      : null,
     our_messages: ourMessages.map(m => ({
       id: m.id,
-      text: m.message || ""
+      text: m.message || "",
+      parent_id: m.reply_to?.reply_to_msg_id ?? null,
     })),
-    replies_to_our_messages: repliesToUs
+    replies_to_our_messages: repliesToUs,
+    unanswered_replies_to_us: unansweredToUs,
+    thread: {
+      tree,
+      messages: flat,
+    },
   };
 }
 
 async function getDiscussionThread(inputPeer, discussionRootId) {
-  const result = new Map();
+  const candidates = new Map();
   const limit = 100;
   let offset_id = 0;
+  let foundRoot = false;
 
   while (true) {
     const history = await mtprotoCall('messages.getHistory', {
@@ -788,30 +938,49 @@ async function getDiscussionThread(inputPeer, discussionRootId) {
       if (m._ !== 'message') continue;
 
       if (m.id === discussionRootId) {
-        result.set(m.id, m);
-        return [...result.values()].sort((a, b) => a.id - b.id);
+        candidates.set(m.id, m);
+        foundRoot = true;
+        break;
       }
 
       if (m.id < discussionRootId) {
-        return [...result.values()].sort((a, b) => a.id - b.id);
+        foundRoot = true;
+        break;
       }
 
-      if (
-        m.reply_to?.reply_to_top_id === discussionRootId ||
-        m.reply_to?.reply_to_msg_id === discussionRootId
-      ) {
-        result.set(m.id, m);
-      }
+      candidates.set(m.id, m);
     }
 
+    if (foundRoot) break;
     offset_id = messages[messages.length - 1].id;
   }
 
-  return [...result.values()].sort((a, b) => a.id - b.id);
+  const belongsToThread = (message) => {
+    if (!message) return false;
+    if (message.id === discussionRootId) return true;
+    if (message.reply_to?.reply_to_top_id === discussionRootId) return true;
+
+    let parentId = message.reply_to?.reply_to_msg_id;
+    const seen = new Set();
+    while (parentId && !seen.has(parentId)) {
+      if (parentId === discussionRootId) return true;
+      seen.add(parentId);
+      const parent = candidates.get(parentId);
+      if (!parent) break;
+      parentId = parent.reply_to?.reply_to_msg_id;
+    }
+    return false;
+  };
+
+  return [...candidates.values()]
+    .filter(belongsToThread)
+    .sort((a, b) => a.id - b.id);
 }
 
-async function sendCommentToPost(channelPeer, channelGroupId, target, comment, edition, prompt) {
+async function sendCommentToPost(channelPeer, channelGroupId, target, comment, edition, prompt, aiContext = null) {
   try {
+    const ctx = aiContext || buildAiContext({});
+
     // 1️⃣ Отримуємо ID останнього поста каналу
     const { channelPostId } = await getLastChannelPost(channelPeer);
     const discussionRoot = await findDiscussionRoot(channelPeer, channelPostId);
@@ -887,10 +1056,24 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
       let jsonPayload;
       if (target == '@') {
         const discussionThread = await getDiscussionThread(getInputPeer(linkedChat.peer), discussionRoot.id);
-        jsonPayload = JSON.stringify(await buildLLMPayload(discussionThread, discussionRoot.id), null, 2);
+        const payload = await buildLLMPayload(
+          discussionThread,
+          discussionRoot.id,
+          ctx.replyStrategy
+        );
+        if (payload.skip_suggested) {
+          console.log(`Skip sending to ${channelGroupId}: ${payload.suggested_reason}`);
+          return;
+        }
+        if (payload.target?.id) {
+          params.reply_to_msg_id = payload.target.id;
+          targetMessage =
+            discussionThread.find((m) => m.id === payload.target.id) || targetMessage;
+        }
+        jsonPayload = JSON.stringify(payload, null, 2);
       }
 
-      const res = await handlePrompt(prompt, jsonPayload || targetMessage.message);
+      const res = await handlePrompt(prompt, jsonPayload || targetMessage.message, ctx);
 
       if (res.skip) {
         console.log(`Skip sending to ${channelGroupId} due to agent directive`);
@@ -1040,7 +1223,8 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
   console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
 
-async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, edition, prompt) {
+async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, edition, prompt, aiContext = null) {
+  const ctx = aiContext || buildAiContext({});
   const linkedChat = await getLinkedChatPeer(channelPeer);
 
   if (linkedChat.peer.username) {
@@ -1055,9 +1239,29 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
   console.log(`🧵 Discussion root ID: ${discussionRoot.id}`);
 
   let text = comment;
+  let replyToMsgId = discussionRoot.id;
+
   if (prompt && LLMEnabled()) {
-    // handle prompt        
-    const res = await handlePrompt(prompt, discussionRoot.message);
+    const discussionThread = await getDiscussionThread(
+      getInputPeer(linkedChat.peer),
+      discussionRoot.id
+    );
+    const payload = await buildLLMPayload(
+      discussionThread,
+      discussionRoot.id,
+      ctx.replyStrategy
+    );
+
+    if (payload.skip_suggested) {
+      console.log(`Skip sending to ${channelGroupId}: ${payload.suggested_reason}`);
+      return;
+    }
+
+    if (payload.target?.id) {
+      replyToMsgId = payload.target.id;
+    }
+
+    const res = await handlePrompt(prompt, JSON.stringify(payload, null, 2), ctx);
 
     if (res.skip) {
       console.log(`Skip sending to ${channelGroupId} due to agent directive`);
@@ -1067,6 +1271,10 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     if (!res.answer) {
       console.log(`Skip sending to ${channelGroupId} due to an empty answer`);
       return;
+    }
+
+    if (res.message_id) {
+      replyToMsgId = res.message_id;
     }
 
     text = res.answer;
@@ -1081,7 +1289,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
       access_hash: linkedChat.peer.access_hash
     },
     message: text,
-    reply_to_msg_id: discussionRoot.id,
+    reply_to_msg_id: replyToMsgId,
     random_id: BigInt(Date.now()).toString(),
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   };
@@ -1103,6 +1311,7 @@ async function handleDebouncedPost(
   postId
 ) {
   const { groupid, comment, edition, reaction, prompt } = groupConfig;
+  const aiContext = buildAiContext(groupConfig);
 
   console.log(`⏳ Debounced post ${postId} in ${groupid}`);
 
@@ -1113,7 +1322,8 @@ async function handleDebouncedPost(
       postId,
       comment,
       edition,
-      prompt
+      prompt,
+      aiContext
     );
   }
 
@@ -1206,13 +1416,135 @@ async function pollChannelsForNewPosts() {
   }
 }
 
+function buildPmConversationPayload(messages, user) {
+  const chronological = [...messages]
+    .filter((m) => m?._ === 'message' && m.id)
+    .sort((a, b) => a.id - b.id);
+
+  const mapped = chronological.map((m) => ({
+    id: m.id,
+    text: m.message || '',
+    parent_id: m.reply_to?.reply_to_msg_id ?? null,
+    is_ours: m.out === true,
+    from: m.out === true ? 'us' : 'them',
+  }));
+
+  const latestIncoming = [...mapped].reverse().find((m) => !m.is_ours) || null;
+  const latest = mapped[mapped.length - 1] || null;
+
+  return {
+    chat_type: 'private',
+    peer: {
+      user_id: user.id,
+      username: user.username || null,
+      first_name: user.first_name || null,
+      last_name: user.last_name || null,
+    },
+    messages: mapped,
+    latest,
+    latest_incoming: latestIncoming,
+    target: latestIncoming,
+  };
+}
+
+async function replyToPrivateMessageAutoreply(inputPeer, userId, messages, replyText) {
+  const alreadyReplied = messages.some(
+    (m) =>
+      m.out === true &&
+      typeof m.message === 'string' &&
+      m.message.trim() === replyText.trim()
+  );
+  if (alreadyReplied) return false;
+
+  const incoming = messages.find((m) => isPrivateMessage(m) && m.out !== true);
+  if (!incoming) return false;
+
+  console.log(`💬 PM from ${userId}: ${incoming.message}`);
+
+  await mtprotoCall('messages.sendMessage', {
+    peer: inputPeer,
+    message: replyText,
+    random_id: BigInt(Date.now()).toString(),
+  });
+
+  onMessageSent();
+  console.log(`✅ Auto-replied to ${userId}`);
+  return true;
+}
+
+async function replyToPrivateMessageAi(inputPeer, user, messages) {
+  if (!LLMEnabled()) {
+    console.log('Skip AI PM reply: GROQ_API_KEY is not configured');
+    return false;
+  }
+
+  const validMessages = (messages || []).filter((m) => m?._ === 'message' && m.id);
+  if (!validMessages.length) return false;
+
+  // Newest first from Telegram history
+  const latest = validMessages[0];
+  if (!latest || latest.out === true || !isPrivateMessage(latest)) {
+    return false;
+  }
+
+  const userKey = String(user.id);
+  if (lastHandledPmByUser.get(userKey) === latest.id) {
+    return false;
+  }
+
+  const payload = buildPmConversationPayload(validMessages, user);
+  const aiContext = buildPmAiContext();
+  const prompt = getPmPrompt();
+
+  console.log(`💬 AI PM from ${user.id}: ${latest.message}`);
+
+  const res = await handlePrompt(prompt, JSON.stringify(payload, null, 2), aiContext);
+
+  // Mark handled even on skip so we don't hammer the same message every poll
+  lastHandledPmByUser.set(userKey, latest.id);
+
+  if (res.skip) {
+    console.log(`Skip AI PM reply to ${user.id} due to agent directive`);
+    return false;
+  }
+
+  if (!res.answer) {
+    console.log(`Skip AI PM reply to ${user.id} due to an empty answer`);
+    return false;
+  }
+
+  const sendParams = {
+    peer: inputPeer,
+    message: res.answer,
+    random_id: BigInt(Date.now()).toString(),
+  };
+
+  if (res.message_id) {
+    sendParams.reply_to_msg_id = res.message_id;
+  } else if (payload.target?.id) {
+    sendParams.reply_to_msg_id = payload.target.id;
+  }
+
+  await mtprotoCall('messages.sendMessage', sendParams);
+  onMessageSent();
+  console.log(`✅ AI-replied to PM ${user.id}`);
+  return true;
+}
+
 async function pollPrivateMessages() {
   if (PM_POLLING_LOCK) return;
   PM_POLLING_LOCK = true;
 
   try {
+    const mode = resolvePmMode();
+    if (mode === 'off') return;
+
     const replyText = getConfigItem('TELEGRAM_PM_AUTOREPLY_TEXT');
-    if (!replyText) return;
+    if (mode === 'autoreply' && !replyText) return;
+    if (mode === 'ai' && !LLMEnabled()) {
+      console.log('TELEGRAM_PM_MODE=ai but GROQ_API_KEY is missing');
+      return;
+    }
 
     const dialogs = await mtprotoCall('messages.getDialogs', {
       offset_date: 0,
@@ -1236,40 +1568,20 @@ async function pollPrivateMessages() {
         access_hash: user.access_hash
       };
 
-      // Fetch recent history (incoming + outgoing)
+      const historyLimit = mode === 'ai' ? 40 : 10;
       const history = await mtprotoCall('messages.getHistory', {
         peer: inputPeer,
-        limit: 10
+        limit: historyLimit
       });
 
       const messages = history.messages || [];
       if (!messages.length) continue;
 
-      // 1️⃣ Check if we already sent the same reply
-      const alreadyReplied = messages.some(m =>
-        m.out === true &&
-        typeof m.message === 'string' &&
-        m.message.trim() === replyText.trim()
-      );
-
-      if (alreadyReplied) {
-        continue;
+      if (mode === 'ai') {
+        await replyToPrivateMessageAi(inputPeer, user, messages);
+      } else {
+        await replyToPrivateMessageAutoreply(inputPeer, userId, messages, replyText);
       }
-
-      // 2️⃣ Find latest incoming private message
-      const incoming = messages.find(m => isPrivateMessage(m) && m.out !== true);
-      if (!incoming) continue;
-
-      console.log(`💬 PM from ${userId}: ${incoming.message}`);
-
-      await mtprotoCall('messages.sendMessage', {
-        peer: inputPeer,
-        message: replyText,
-        random_id: BigInt(Date.now()).toString()
-      });
-
-      onMessageSent();
-      console.log(`✅ Auto-replied to ${userId}`);
     }
   } catch (err) {
     console.error('❌ PM polling error:', err);
@@ -1322,6 +1634,7 @@ async function processGroups(requestCode) {
 
       for (const group of data) {
         const { groupid, comment, edition, reaction, prompt, target } = group;
+        const aiContext = buildAiContext(group);
         console.log(`\n⚙️ Processing ${groupid}`);
 
         if (throttlingRate > 0) {
@@ -1351,10 +1664,10 @@ async function processGroups(requestCode) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment || prompt) await sendMessage(peer, groupid, comment, edition, target, prompt);
+          if (comment || prompt) await sendMessage(peer, groupid, comment, edition, target, prompt, aiContext);
           if (reaction) await reactToMessage(peer, groupid, reaction, target);
         } else if (type == 'channel') {
-          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, edition, prompt);
+          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, edition, prompt, aiContext);
           if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction);
         }
 
@@ -1375,6 +1688,7 @@ async function processGroups(requestCode) {
     setIsRunning(false);
     clearInterval(pmTimer);
     clearInterval(pollTimer);
+    lastHandledPmByUser.clear();
     for (const m of lastSeenPost.values()) m.clear();
     lastSeenPost.clear();
     for (const m of channelDebounce.values()) {

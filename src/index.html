@@ -12,6 +12,7 @@
     <h2>TGPoster</h2>
     <a href="index.html">&#x2302; Головна</a>
     <a href="configuration.html">&#9881; Налаштування</a>
+    <a href="ai-bot.html">&#129302; ШІ Бот</a>
     <a href="accounts.html">&#128101; Акаунти</a>
     <a href="profile.html">&#128100; Профіль</a>
     <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -63,6 +64,42 @@
     </div>
 
     <div class="form-grid">
+      <div class="form-group">
+        <label for="ai_scenario">Сценарій ШІ</label>
+        <select id="ai_scenario">
+          <option value="">глобальний / немає</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ai_goal">Ціль ШІ</label>
+        <select id="ai_goal">
+          <option value="">глобальний / немає</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="reply_strategy">Стратегія реплаю</label>
+        <select id="reply_strategy">
+          <option value="">глобальна</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="ai_mood">Настрій (override)</label>
+        <input id="ai_mood" placeholder="порожньо = глобальний" />
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="ai_personality">Personality (override)</label>
+        <textarea id="ai_personality" placeholder="порожньо = глобальний"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="ai_bio">Bio (override)</label>
+        <textarea id="ai_bio" placeholder="порожньо = глобальний"></textarea>
+      </div>
+    </div>
+
+    <div class="form-grid">
         <div class="button-group">
           <div>
             <button id="add_btn" onclick="add()"><span class="material-icons">add</span></button>
@@ -107,6 +144,8 @@
             <th>Оновлення</th>
             <th>Реакція</th>
             <th>ШІ Промт</th>
+            <th>Сценарій</th>
+            <th>Ціль</th>
             <th>Реплай</th>
             <th>Надіслано</th>
             <th width="150">Дії</th>

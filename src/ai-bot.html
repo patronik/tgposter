@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <title>ШІ Бот</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="main.css">
+  <style>
+    .ai-section { margin-top: 1.5rem; }
+    .ai-section h3 {
+      margin-bottom: 12px;
+      color: var(--dark);
+      font-size: 1.05rem;
+    }
+    .ai-hint {
+      color: var(--gray);
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+    .catalog-row {
+      display: grid;
+      grid-template-columns: 140px 180px 1fr auto;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: start;
+    }
+    .catalog-row input,
+    .catalog-row textarea {
+      width: 100%;
+      max-width: none;
+    }
+    .catalog-row textarea {
+      min-height: 56px;
+    }
+    .ai-form .form-group textarea,
+    .ai-form .form-group input,
+    .ai-form .form-group select {
+      max-width: 100%;
+    }
+    .status-msg {
+      margin-top: 12px;
+      color: var(--gray);
+      font-size: 0.9rem;
+    }
+    .status-msg.ok { color: var(--success); }
+    .status-msg.err { color: var(--danger); }
+    @media (max-width: 800px) {
+      .catalog-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>ШІ Бот</h2>
+    <a href="index.html">&#x2302; Головна</a>
+    <a href="configuration.html">&#9881; Налаштування</a>
+    <a href="ai-bot.html">&#129302; ШІ Бот</a>
+    <a href="accounts.html">&#128101; Акаунти</a>
+    <a href="profile.html">&#128100; Профіль</a>
+    <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg> Допомога</a>
+
+    <p class="ai-hint">
+      Глобальна особистість, настрій, сценарії та цілі бота. На головній сторінці можна перевизначити їх для окремої групи/каналу.
+    </p>
+
+    <div class="ai-form">
+      <div class="ai-section">
+        <h3>Groq</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="GROQ_API_KEY">GROQ_API_KEY</label>
+            <input id="GROQ_API_KEY" type="password" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label for="GROQ_API_MODEL">Модель</label>
+            <input id="GROQ_API_MODEL" placeholder="llama-3.3-70b-versatile" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="GROQ_SYSTEM_MESSAGE">Базовий system prompt (опційно)</label>
+          <textarea id="GROQ_SYSTEM_MESSAGE" rows="3"></textarea>
+        </div>
+      </div>
+
+      <div class="ai-section">
+        <h3>Приватні чати (PM)</h3>
+        <p class="ai-hint">
+          Глобальний режим відповідей у приватних діалогах: статичний текст або повний AI-чат з історією.
+        </p>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="TELEGRAM_PM_MODE">Режим PM</label>
+            <select id="TELEGRAM_PM_MODE"></select>
+          </div>
+          <div class="form-group">
+            <label for="TELEGRAM_PM_AUTOREPLY_TEXT">Autoreply text</label>
+            <input id="TELEGRAM_PM_AUTOREPLY_TEXT" placeholder="Використовується у режимі Static autoreply" />
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="AI_PM_SCENARIO">Сценарій для PM</label>
+            <select id="AI_PM_SCENARIO">
+              <option value="">глобальний / немає</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="AI_PM_GOAL">Ціль для PM</label>
+            <select id="AI_PM_GOAL">
+              <option value="">глобальний / немає</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="AI_PM_MOOD">Настрій PM (override)</label>
+            <input id="AI_PM_MOOD" placeholder="порожньо = глобальний" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="AI_PM_PROMPT">Промпт для PM</label>
+          <textarea id="AI_PM_PROMPT" rows="3" placeholder="Continue this private Telegram chat naturally..."></textarea>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="AI_PM_PERSONALITY">Personality PM (override)</label>
+            <textarea id="AI_PM_PERSONALITY" rows="2" placeholder="порожньо = глобальний"></textarea>
+          </div>
+          <div class="form-group">
+            <label for="AI_PM_BIO">Bio PM (override)</label>
+            <textarea id="AI_PM_BIO" rows="2" placeholder="порожньо = глобальний"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-section">
+        <h3>Особистість</h3>
+        <div class="form-group">
+          <label for="AI_PERSONALITY">Personality</label>
+          <textarea id="AI_PERSONALITY" rows="3" placeholder="Хто бот і як він спілкується"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="AI_BIO">Bio / background</label>
+          <textarea id="AI_BIO" rows="3" placeholder="Факти про бота для контексту розмови (не Telegram bio)"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="AI_MOOD">Поточний настрій</label>
+          <input id="AI_MOOD" placeholder="напр. грайливий, спокійний, допитливий" />
+        </div>
+      </div>
+
+      <div class="ai-section">
+        <h3>Стиль розмови</h3>
+        <p class="ai-hint">Паузи, жарти, легкі відхилення від сценарію — щоб дискусія не виглядала штучно.</p>
+        <div class="form-group">
+          <label for="AI_CONVERSATION_STYLE">Conversation style</label>
+          <textarea id="AI_CONVERSATION_STYLE" rows="6"></textarea>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="AI_REPLY_STRATEGY">Стратегія реплаю за замовчуванням</label>
+            <select id="AI_REPLY_STRATEGY"></select>
+          </div>
+          <div class="form-group">
+            <label for="AI_SKIP_PROBABILITY">Ймовірність пропуску ходу (%)</label>
+            <input id="AI_SKIP_PROBABILITY" type="number" min="0" max="100" step="1" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label for="AI_REPLY_DELAY_MIN_MS">Мін. затримка відповіді (мс)</label>
+            <input id="AI_REPLY_DELAY_MIN_MS" type="number" min="0" step="100" placeholder="0" />
+          </div>
+          <div class="form-group">
+            <label for="AI_REPLY_DELAY_MAX_MS">Макс. затримка відповіді (мс)</label>
+            <input id="AI_REPLY_DELAY_MAX_MS" type="number" min="0" step="100" placeholder="0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-section">
+        <h3>Сценарії</h3>
+        <p class="ai-hint">Каталог для випадаючого списку на головній. id — стабільний ключ.</p>
+        <div id="scenarios-list"></div>
+        <div class="button-group">
+          <button type="button" onclick="addScenarioRow()"><span class="material-icons">add</span> Сценарій</button>
+          <button type="button" onclick="resetScenarios()"><span class="material-icons">restart_alt</span> Скинути</button>
+        </div>
+      </div>
+
+      <div class="ai-section">
+        <h3>Цілі</h3>
+        <p class="ai-hint">Каталог цілей розмови (пожартувати, підбадьорити, привітати тощо).</p>
+        <div id="goals-list"></div>
+        <div class="button-group">
+          <button type="button" onclick="addGoalRow()"><span class="material-icons">add</span> Ціль</button>
+          <button type="button" onclick="resetGoals()"><span class="material-icons">restart_alt</span> Скинути</button>
+        </div>
+      </div>
+
+      <div class="button-group" style="margin-top: 1.5rem;">
+        <button type="button" onclick="saveAiSettings()"><span class="material-icons">save</span> Зберегти</button>
+      </div>
+      <div id="ai-status" class="status-msg"></div>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="ai-bot.js"></script>
+</body>
+</html>

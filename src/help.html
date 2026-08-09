@@ -10,6 +10,7 @@
     <h2>Допомога</h2>
     <a href="index.html">&#x2302; Головна</a>
     <a href="configuration.html">&#9881; Налаштування</a>
+    <a href="ai-bot.html">&#129302; ШІ Бот</a>
     <a href="accounts.html">&#128101; Акаунти</a>
     <a href="profile.html">&#128100; Профіль</a>
     <a href="help.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -105,22 +106,67 @@
         </div>
 
         <div>
-          <h4>3️⃣ Збереження <code>GROQ_API_KEY</code> в <a href="configuration.html">налаштуваннях</a>:</h4>
+          <h4>3️⃣ Збереження <code>GROQ_API_KEY</code> на сторінці <a href="ai-bot.html">ШІ Бот</a> (або в <a href="configuration.html">налаштуваннях</a>):</h4>
           <ol>
-            <li>Створіть параметр конфігурації із назвою "GROQ_API_KEY" та збережіть у нього згенерований ключ</li>            
+            <li>Відкрийте <a href="ai-bot.html">ШІ Бот</a> і збережіть ключ у полі GROQ_API_KEY</li>
+            <li>За потреби налаштуйте personality, bio, mood, сценарії, цілі та природний стиль розмови</li>
           </ol>  
           <div style="width:1013px; height:70px; margin: auto;"> 
           <img style="width:90%; height:90%;" src="images/groq_api_key.png" alt="Settings">   
         </div>        
         </div>
 
+        <h2>Параметри <a href="ai-bot.html">ШІ Бота</a>:</h2>
+        <ul style="list-style-type: none;">
+            <li><b>GROQ_API_KEY</b> - API-ключ Groq; якщо порожній, ШІ-відповіді вимкнені</li>
+            <li><b>GROQ_API_MODEL</b> - модель Groq (за замовчуванням <code>llama-3.3-70b-versatile</code>)</li>
+            <li><b>GROQ_SYSTEM_MESSAGE</b> - опційний базовий system prompt (додається перед personality/bio/mood)</li>
+            <li><b>AI_PERSONALITY</b> - глобальна особистість бота (частина system prompt)</li>
+            <li><b>AI_BIO</b> - глобальна біографія/бекграунд для контексту розмови (не Telegram profile bio)</li>
+            <li><b>AI_MOOD</b> - глобальний поточний настрій бота</li>
+            <li><b>AI_SCENARIOS</b> - JSON-каталог сценаріїв розмови для dropdown (<code>[{id,name,description},…]</code>)</li>
+            <li><b>AI_GOALS</b> - JSON-каталог цілей розмови для dropdown (<code>[{id,name,description},…]</code>)</li>
+            <li><b>AI_CONVERSATION_STYLE</b> - інструкції природної поведінки (паузи, жарти, короткі відхилення від сценарію)</li>
+            <li><b>AI_REPLY_STRATEGY</b> - стратегія вибору повідомлення для реплаю:
+              <code>auto</code> (пріоритет unanswered replies to us, інакше root),
+              <code>root</code>,
+              <code>unanswered_to_us</code>,
+              <code>any_thread</code> (LLM обирає),
+              <code>last</code>,
+              <code>random</code>
+            </li>
+            <li><b>AI_REPLY_DELAY_MIN_MS</b> - мінімальна випадкова затримка (мс) перед ШІ-відповіддю</li>
+            <li><b>AI_REPLY_DELAY_MAX_MS</b> - максимальна випадкова затримка (мс) перед ШІ-відповіддю; <code>0</code> вимикає затримку</li>
+            <li><b>AI_SKIP_PROBABILITY</b> - додаткова ймовірність (0–100 %) пропустити хід навіть без <code>skip</code> від моделі</li>
+            <li><b>TELEGRAM_PM_MODE</b> - режим приватних чатів:
+              <code>off</code> (не відповідати),
+              <code>autoreply</code> (статичний текст),
+              <code>ai</code> (повний AI-чат з історією).
+              Якщо параметр порожній, але задано <code>TELEGRAM_PM_AUTOREPLY_TEXT</code>, використовується <code>autoreply</code>
+            </li>
+            <li><b>TELEGRAM_PM_AUTOREPLY_TEXT</b> - статичний текст відповіді в PM для режиму <code>autoreply</code></li>
+            <li><b>AI_PM_PROMPT</b> - user-промпт для AI-режиму приватних чатів</li>
+            <li><b>AI_PM_SCENARIO</b> - id сценарію з <code>AI_SCENARIOS</code> для PM (порожньо = без окремого сценарію)</li>
+            <li><b>AI_PM_GOAL</b> - id цілі з <code>AI_GOALS</code> для PM (порожньо = без окремої цілі)</li>
+            <li><b>AI_PM_MOOD</b> - override глобального <code>AI_MOOD</code> лише для приватних чатів</li>
+            <li><b>AI_PM_PERSONALITY</b> - override глобального <code>AI_PERSONALITY</code> лише для приватних чатів</li>
+            <li><b>AI_PM_BIO</b> - override глобального <code>AI_BIO</code> лише для приватних чатів</li>
+        </ul>
+        <p>
+          На головній сторінці для кожного пункту (групи/каналу) можна перевизначити
+          <code>ai_personality</code>, <code>ai_bio</code>, <code>ai_mood</code>,
+          обрати <code>ai_scenario</code> / <code>ai_goal</code> і <code>reply_strategy</code>.
+          Режим «ведення дискусії» (<code>target=@</code>) передає в LLM дерево гілки з parent-child зв’язками.
+          Для приватних чатів оберіть <code>TELEGRAM_PM_MODE=ai</code> на сторінці ШІ Бот.
+        </p>
+
         <h2>Інші <a href="configuration.html">налаштування</a>:</h2>
         <ul style="list-style-type: none;">
             <li><b>TELEGRAM_CH_POLL_INTERVAL</b> - пауза між опитуванням каналів про нові пости</li>
             <li><b>TELEGRAM_NEW_POST_DEBOUNCE</b> - пауза перед публікацією коментаря під новим постом</li>
             <li><b>TELEGRAM_NEW_POST_MAX_AGE</b> - максимальний вік нового поста</li>
-            <li><b>TELEGRAM_PM_POLL_INTERVAL</b> - пауза між перевіркою нових приватних повідомлень</li>            
-            <li><b>TELEGRAM_PM_AUTOREPLY_TEXT</b> - текст для автоматичної відповіді в приватні повідомлення</li>            
+            <li><b>TELEGRAM_PM_POLL_INTERVAL</b> - пауза між перевіркою нових приватних повідомлень</li>
+            <li><b>TELEGRAM_PM_MODE</b> / <b>TELEGRAM_PM_AUTOREPLY_TEXT</b> - див. секцію ШІ Бот вище</li>            
             <li><b>TELEGRAM_SEND_AS_CHANNEL</b> - канал від імені якого надсилати повідомлення</li>
             <li><b>TELEGRAM_RESTORE_BIO_DELAY</b> - пауза перед відновленням інформації в профілі</li>
             <li><b>TELEGRAM_EDIT_DELAY</b> - пауза перед редагуванням повідомлення</li>

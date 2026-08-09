@@ -28,6 +28,7 @@ window.api = {
   getRequiredKeys: () => request('GET', '/api/config/required-keys'),
   getConfigItem: (key) => request('GET', `/api/config/${encodeURIComponent(key)}`).then((r) => r?.value),
   setConfig: (config) => request('PUT', '/api/config', config),
+  getAiCatalog: () => request('GET', '/api/ai/catalog'),
   // accounts
   getAccounts: () => request('GET', '/api/accounts'),
   addAccount: (phone) => request('POST', '/api/accounts', { phone }),

@@ -28,6 +28,7 @@ const {
   getProfilePhotoBuffer,
   updateProfile,
 } = require('./src/telegram/poster');
+const { getAiCatalog } = require('./src/ai');
 const { getDataDir } = require('./src/dataDir');
 
 const app = express();
@@ -173,6 +174,15 @@ app.put('/api/config', (req, res) => {
   try {
     writeConfig(req.body);
     res.json(req.body);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ----- AI bot -----
+app.get('/api/ai/catalog', (req, res) => {
+  try {
+    res.json(getAiCatalog());
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

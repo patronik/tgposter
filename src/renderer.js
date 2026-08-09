@@ -6,6 +6,8 @@ const codeInput = document.getElementById('code');
 const sendCodeBtn = document.getElementById('send_code');
 
 let isRunning = false;
+let aiCatalog = { scenarios: [], goals: [], replyStrategies: [] };
+
 setInterval(
   async () => {
     isRunning = await window.api.getIsRunning();  
@@ -148,6 +150,75 @@ function renderTarget(key) {
   }
 }
 
+function catalogLabel(list, id) {
+  if (!id) return '—';
+  const found = (list || []).find((x) => x.id === id);
+  return found ? found.name : id;
+}
+
+function fillSelect(selectId, items, emptyLabel, selectedValue = '') {
+  const select = document.getElementById(selectId);
+  const current = selectedValue || select.value || '';
+  select.innerHTML = `<option value="">${emptyLabel}</option>`;
+  for (const item of items || []) {
+    const opt = document.createElement('option');
+    opt.value = item.id;
+    opt.textContent = item.name || item.id;
+    select.appendChild(opt);
+  }
+  select.value = current;
+}
+
+function readItemForm() {
+  return {
+    groupid: document.getElementById('groupid').value,
+    comment: document.getElementById('comment').value,
+    edition: document.getElementById('edition').value,
+    reaction: document.getElementById('reaction').value,
+    prompt: document.getElementById('prompt').value,
+    target: document.getElementById('target').value,
+    ai_scenario: document.getElementById('ai_scenario').value,
+    ai_goal: document.getElementById('ai_goal').value,
+    reply_strategy: document.getElementById('reply_strategy').value,
+    ai_mood: document.getElementById('ai_mood').value,
+    ai_personality: document.getElementById('ai_personality').value,
+    ai_bio: document.getElementById('ai_bio').value,
+  };
+}
+
+function fillItemForm(item = {}) {
+  document.getElementById('groupid').value = item.groupid || '';
+  document.getElementById('comment').value = item.comment || '';
+  document.getElementById('edition').value = item.edition || '';
+  document.getElementById('reaction').value = item.reaction || '';
+  document.getElementById('prompt').value = item.prompt || '';
+  document.getElementById('target').value = item.target || '';
+  document.getElementById('ai_scenario').value = item.ai_scenario || '';
+  document.getElementById('ai_goal').value = item.ai_goal || '';
+  document.getElementById('reply_strategy').value = item.reply_strategy || '';
+  document.getElementById('ai_mood').value = item.ai_mood || '';
+  document.getElementById('ai_personality').value = item.ai_personality || '';
+  document.getElementById('ai_bio').value = item.ai_bio || '';
+}
+
+function clearItemForm() {
+  document.getElementById('id').value = '';
+  fillItemForm({});
+  document.getElementById("add_btn").style.display = "block";
+  document.getElementById("save_btn").style.display = "none";
+}
+
+async function loadAiDropdowns() {
+  try {
+    aiCatalog = await window.api.getAiCatalog();
+  } catch (_) {
+    aiCatalog = { scenarios: [], goals: [], replyStrategies: [] };
+  }
+  fillSelect('ai_scenario', aiCatalog.scenarios, 'глобальний / немає');
+  fillSelect('ai_goal', aiCatalog.goals, 'глобальний / немає');
+  fillSelect('reply_strategy', aiCatalog.replyStrategies, 'глобальна');
+}
+
 async function load() {  
   const [items, sentByGroup] = await Promise.all([
     window.api.getItems(),
@@ -165,6 +236,8 @@ async function load() {
       <td>${i.edition}</td>
       <td>${i.reaction}</td>
       <td>${(i.prompt || '').slice(0, 100)}</td>
+      <td>${catalogLabel(aiCatalog.scenarios, i.ai_scenario)}</td>
+      <td>${catalogLabel(aiCatalog.goals, i.ai_goal)}</td>
       <td>${renderTarget(i.target)}</td>
       <td class="sent-count">${sent}</td>
       <td>                
@@ -180,27 +253,15 @@ async function load() {
 
 async function add() {  
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const groupid = document.getElementById('groupid').value;
-  const comment = document.getElementById('comment').value;
-  const edition = document.getElementById('edition').value;
-  const reaction = document.getElementById('reaction').value;
-  const prompt = document.getElementById('prompt').value;
-  const target = document.getElementById('target').value;
-  await window.api.addItem(
-    { id, groupid, comment, edition, reaction, prompt, target }
-  );
+  await window.api.addItem({ id, ...readItemForm() });
+  clearItemForm();
   load();
 }
 
 async function edit(id) {  
   const item = await window.api.getItem(id);
   document.getElementById('id').value = id;
-  document.getElementById('groupid').value = item.groupid;
-  document.getElementById('comment').value = item.comment;
-  document.getElementById('edition').value = item.edition;
-  document.getElementById('reaction').value = item.reaction;
-  document.getElementById('prompt').value = item.prompt;
-  document.getElementById('target').value = item.target;
+  fillItemForm(item);
 
   document.getElementById("add_btn").style.display = "none";
   document.getElementById("save_btn").style.display = "block";
@@ -208,27 +269,9 @@ async function edit(id) {
 
 async function save() {
   const id = document.getElementById('id').value;
-  const groupid = document.getElementById('groupid').value;
-  const comment = document.getElementById('comment').value;
-  const edition = document.getElementById('edition').value;
-  const reaction = document.getElementById('reaction').value;
-  const prompt = document.getElementById('prompt').value;
-  const target = document.getElementById('target').value;
-  await window.api.updateItem(
-    { id, groupid, comment, edition, reaction, prompt, target }
-  );
+  await window.api.updateItem({ id, ...readItemForm() });
+  clearItemForm();
   load();
-
-  document.getElementById('id').value = '';
-  document.getElementById('groupid').value = '';
-  document.getElementById('comment').value = '';
-  document.getElementById('edition').value = '';
-  document.getElementById('reaction').value = '';
-  document.getElementById('prompt').value = '';
-  document.getElementById('target').value = '';
-  
-  document.getElementById("add_btn").style.display = "block";
-  document.getElementById("save_btn").style.display = "none";
 }
 
 async function remove(id) {
@@ -236,4 +279,7 @@ async function remove(id) {
   load();
 }
 
-load();
+(async () => {
+  await loadAiDropdowns();
+  await load();
+})();
