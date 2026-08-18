@@ -305,7 +305,7 @@ const queryLLM = async (prompt, retries = 2, aiContext = null) => {
           Authorization: `Bearer ${getConfigItem('GROQ_API_KEY')}`,
         },
         body: JSON.stringify({
-          model: getConfigItem('GROQ_API_MODEL') || 'llama-3.3-70b-versatile',
+          model: getConfigItem('GROQ_API_MODEL') || 'openai/gpt-oss-120b',
           messages,
         }),
         signal: controller.signal,
