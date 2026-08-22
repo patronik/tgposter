@@ -9,10 +9,6 @@ function getDbFile() {
   return path.join(getDataDir(), 'data.db');
 }
 
-function getJsonDataFile() {
-  return path.join(getDataDir(), 'data.json');
-}
-
 function rowToItem(row) {
   if (!row) return null;
   return {
@@ -49,39 +45,6 @@ function insertItem(item) {
   );
 }
 
-function migrateFromJsonIfNeeded() {
-  const jsonFile = getJsonDataFile();
-  if (!fs.existsSync(jsonFile)) return;
-
-  const count = db.prepare('SELECT COUNT(*) AS c FROM targets').get().c;
-  if (count > 0) return;
-
-  let data;
-  try {
-    data = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
-  } catch (err) {
-    console.error('Failed to read data.json for SQLite migration:', err.message);
-    return;
-  }
-
-  if (!Array.isArray(data) || data.length === 0) return;
-
-  withTransaction(() => {
-    for (const item of data) {
-      if (!item?.id) continue;
-      insertItem(item);
-    }
-  });
-
-  try {
-    fs.renameSync(jsonFile, `${jsonFile}.migrated`);
-  } catch (err) {
-    console.warn('Migrated data.json but could not rename it:', err.message);
-  }
-
-  console.log(`Migrated ${data.length} posting targets from data.json to SQLite`);
-}
-
 function initDb() {
   if (db) return db;
 
@@ -104,7 +67,6 @@ function initDb() {
     );
   `);
 
-  migrateFromJsonIfNeeded();
   return db;
 }
 
