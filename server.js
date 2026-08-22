@@ -4,14 +4,21 @@ const path = require('node:path');
 const fs = require('fs');
 const crypto = require('node:crypto');
 const {
-  readData,
-  writeData,
   loadRemote,
   readConfig,
   writeConfig,
   getConfigItem,
   getReqKeys,
 } = require('./src/config');
+const {
+  initDb,
+  readData,
+  writeData,
+  getTarget,
+  addTarget,
+  updateTarget,
+  deleteTarget,
+} = require('./src/db');
 const {
   getAccounts,
   addAccount,
@@ -103,9 +110,9 @@ app.get('/api/items', (req, res) => {
 
 app.get('/api/items/:id', (req, res) => {
   try {
-    const data = readData().filter((i) => i.id === req.params.id);
-    if (!data.length) return res.status(404).json({ error: 'Not found' });
-    res.json(data[0]);
+    const item = getTarget(req.params.id);
+    if (!item) return res.status(404).json({ error: 'Not found' });
+    res.json(item);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -113,9 +120,8 @@ app.get('/api/items/:id', (req, res) => {
 
 app.post('/api/items', (req, res) => {
   try {
-    const data = readData();
-    data.push(req.body);
-    writeData(data);
+    if (!req.body?.id) return res.status(400).json({ error: 'id is required' });
+    const data = addTarget(req.body);
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -124,9 +130,7 @@ app.post('/api/items', (req, res) => {
 
 app.put('/api/items/:id', (req, res) => {
   try {
-    let data = readData();
-    data = data.map((i) => (i.id === req.params.id ? { ...req.body, id: req.params.id } : i));
-    writeData(data);
+    const data = updateTarget(req.params.id, req.body || {});
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -135,8 +139,7 @@ app.put('/api/items/:id', (req, res) => {
 
 app.delete('/api/items/:id', (req, res) => {
   try {
-    const data = readData().filter((i) => i.id !== req.params.id);
-    writeData(data);
+    const data = deleteTarget(req.params.id);
     res.json(data);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -383,8 +386,12 @@ function startServer() {
 
 // Load remote config on startup
 loadRemote()
-  .then(startServer)
+  .then(() => {
+    initDb();
+    startServer();
+  })
   .catch((err) => {
     console.error('Failed to load remote config:', err);
+    initDb();
     startServer();
   });
