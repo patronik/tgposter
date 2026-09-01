@@ -12,23 +12,8 @@ const PASSWORD = process.env.ENCRYPTION_PASSWORD;
 
 let REMOTE_CONFIG_DATA = {};
 
-function getDataFile() {
-  return path.join(getDataDir(), 'data.json');
-}
 function getConfigFile() {
   return path.join(getDataDir(), 'config.json');
-}
-
-function readData() {
-  const file = getDataFile();
-  if (!fs.existsSync(file)) return [];
-  return JSON.parse(fs.readFileSync(file));
-}
-
-function writeData(data) {
-  const dir = getDataDir();
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(getDataFile(), JSON.stringify(data, null, 2));
 }
 
 function getReqKeys() {   
@@ -125,8 +110,6 @@ async function loadRemote() {
   }
 }
 
-module.exports.readData = readData;
-module.exports.writeData = writeData;
 module.exports.getReqKeys = getReqKeys;
 module.exports.readConfig = readConfig;
 module.exports.writeConfig = writeConfig;

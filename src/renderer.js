@@ -34,10 +34,10 @@ setInterval(
 );
 
 function updateSentCounts(sentByGroup) {
-  document.querySelectorAll('#list tr[data-groupid]').forEach((tr) => {
-    const groupid = tr.getAttribute('data-groupid');
+  document.querySelectorAll('#list tr[data-id]').forEach((tr) => {
+    const id = tr.getAttribute('data-id');
     const cell = tr.querySelector('.sent-count');
-    if (cell) cell.textContent = sentByGroup[groupid] || 0;
+    if (cell) cell.textContent = sentByGroup[id] ?? 0;
   });
 }
 
@@ -228,8 +228,8 @@ async function load() {
   tbody.innerHTML = '';
   items.forEach(i => {
     const tr = document.createElement('tr');
-    tr.setAttribute('data-groupid', i.groupid);
-    const sent = sentByGroup[i.groupid] || 0;
+    tr.setAttribute('data-id', i.id);
+    const sent = i.messages_sent ?? sentByGroup[i.id] ?? 0;
     tr.innerHTML = `
       <td>${i.groupid}</td>
       <td>${i.comment}</td> 

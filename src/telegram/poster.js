@@ -1,4 +1,5 @@
-const { readData, getConfigItem } = require('../config');
+const { getConfigItem } = require('../config');
+const { readData, incrementMessagesSent, getSentCounts, getPersistedTotalSent } = require('../db');
 const { getCurrentClient, getCurrentPhone, advanceToNextAccount, authenticate, isMultiAccountMode, getAccountList, setCurrentIndex } = require('./mtproto');
 const { sleep, getRandomNumber } = require('../utils');
 const {
@@ -25,9 +26,6 @@ let PM_POLLING_LOCK = false;
 let IS_RUNNING = false;
 
 let TOTAL_SENT = 0;
-
-/** @type {Record<string, number>} messages sent per group/channel id */
-let SENT_BY_GROUP = {};
 
 // Per-account caches: Map<accountKey, Map<...>> so multi-account mode does not share state
 const lastSeenPost = new Map();
@@ -58,11 +56,11 @@ function setIsRunning(value) {
 }
 
 function getTotalSent() {
-  return TOTAL_SENT;
+  return getPersistedTotalSent();
 }
 
 function getSentByGroup() {
-  return { ...SENT_BY_GROUP };
+  return getSentCounts();
 }
 /* -- STATE END -- */
 
@@ -92,11 +90,10 @@ async function mtprotoCall(method, data, retry = 0) {
   }
 }
 
-function onMessageSent(groupid) {
+function onMessageSent(itemId) {
   TOTAL_SENT++;
-  if (groupid) {
-    const key = String(groupid);
-    SENT_BY_GROUP[key] = (SENT_BY_GROUP[key] || 0) + 1;
+  if (itemId) {
+    incrementMessagesSent(itemId);
   }
   if (isMultiAccountMode()) {
     const frequency = Math.max(1, parseInt(String(getConfigItem('ACCOUNT_CHANGE_FREQUENCY') || '1'), 10) || 1);
@@ -689,7 +686,7 @@ async function sendAndMaybeEditAndMaybeDelete(sendParams, edition, logPrefix = '
 }
 
 /* -- GROUP POSTING -- */
-async function sendMessage(peer, groupid, message, edition, target, prompt, aiContext = null) {
+async function sendMessage(peer, groupid, message, edition, target, prompt, itemId, aiContext = null) {
   try {
     let inputPeer = getInputPeer(peer);
     const ctx = aiContext || buildAiContext({});
@@ -788,14 +785,14 @@ async function sendMessage(peer, groupid, message, edition, target, prompt, aiCo
       () => sendAndMaybeEditAndMaybeDelete(params, edition, `message in ${groupid}`)
     );
 
-    onMessageSent(groupid);
+    onMessageSent(itemId);
     console.log(`✅ Message sent to ${groupid}`);
   } catch (error) {
     console.error(`❌ Error sending to ${groupid}:`, error);
   }
 }
 
-async function reactToMessage(peer, groupid, reaction, target) {
+async function reactToMessage(peer, groupid, reaction, target, itemId) {
   try {
     let inputPeer = getInputPeer(peer);
     const history = await mtprotoCall('messages.getHistory', {
@@ -839,7 +836,7 @@ async function reactToMessage(peer, groupid, reaction, target) {
 
     await mtprotoCall('messages.sendReaction', params);
 
-    onMessageSent(groupid);
+    onMessageSent(itemId);
     console.log(`✅ Reacted to message ${params.msg_id} in ${groupid}`);
   } catch (error) {
     console.error(`❌ React error in ${groupid}:`, error);
@@ -977,7 +974,7 @@ async function getDiscussionThread(inputPeer, discussionRootId) {
     .sort((a, b) => a.id - b.id);
 }
 
-async function sendCommentToPost(channelPeer, channelGroupId, target, comment, edition, prompt, aiContext = null) {
+async function sendCommentToPost(channelPeer, channelGroupId, target, comment, edition, prompt, itemId, aiContext = null) {
   try {
     const ctx = aiContext || buildAiContext({});
 
@@ -1109,14 +1106,14 @@ async function sendCommentToPost(channelPeer, channelGroupId, target, comment, e
       () => sendAndMaybeEditAndMaybeDelete(params, edition, `comment in ${channelGroupId}`)
     );
 
-    onMessageSent(channelGroupId);
+    onMessageSent(itemId);
     console.log(`✅ Comment sent (reply_to=${params.reply_to_msg_id}) in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ sendCommentToPost error:', error);
   }
 }
 
-async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction) {
+async function reactToCommentOfPost(channelPeer, channelGroupId, target, reaction, itemId) {
   try {
     /** 1️⃣ Отримуємо linked chat */
     const linkedChat = await getLinkedChatPeer(channelPeer);
@@ -1199,14 +1196,14 @@ async function reactToCommentOfPost(channelPeer, channelGroupId, target, reactio
     /** 7️⃣ Відправка реакції */
     await mtprotoCall('messages.sendReaction', params);
 
-    onMessageSent(channelGroupId);
+    onMessageSent(itemId);
     console.log(`✅ Reacted to comment ${params.msg_id} in ${channelGroupId}`);
   } catch (error) {
     console.error('❌ Comment react error:', error);
   }
 }
 
-async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction) {
+async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction, itemId) {
   let sendAsPeer = await getSendAsPeer();
   await mtprotoCall('messages.sendReaction', {
     peer: {
@@ -1219,11 +1216,11 @@ async function reactToSpecificPost(channelPeer, channelGroupId, postId, reaction
     ...(sendAsPeer && { send_as: getSendAsChannel(sendAsPeer) })
   });
 
-  onMessageSent(channelGroupId);
+  onMessageSent(itemId);
   console.log(`❤️ Reacted to new post ${postId} in ${channelGroupId}`);
 }
 
-async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, edition, prompt, aiContext = null) {
+async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, comment, edition, prompt, itemId, aiContext = null) {
   const ctx = aiContext || buildAiContext({});
   const linkedChat = await getLinkedChatPeer(channelPeer);
 
@@ -1299,7 +1296,7 @@ async function sendCommentToSpecificPost(channelPeer, channelGroupId, postId, co
     () => sendAndMaybeEditAndMaybeDelete(sendParams, edition, `comment in ${channelGroupId}`)
   );
 
-  onMessageSent(channelGroupId);
+  onMessageSent(itemId);
   console.log(`💬 Commented on new post ${postId} in ${channelGroupId}`);
 }
 
@@ -1310,7 +1307,8 @@ async function handleDebouncedPost(
   groupConfig,
   postId
 ) {
-  const { groupid, comment, edition, reaction, prompt } = groupConfig;
+
+  const { id, groupid, comment, edition, reaction, prompt } = groupConfig;
   const aiContext = buildAiContext(groupConfig);
 
   console.log(`⏳ Debounced post ${postId} in ${groupid}`);
@@ -1323,6 +1321,7 @@ async function handleDebouncedPost(
       comment,
       edition,
       prompt,
+      id,
       aiContext
     );
   }
@@ -1332,7 +1331,8 @@ async function handleDebouncedPost(
       channelPeer,
       groupid,
       postId,
-      reaction
+      reaction,
+      id
     );
   }
 }
@@ -1633,7 +1633,7 @@ async function processGroups(requestCode) {
 
 
       for (const group of data) {
-        const { groupid, comment, edition, reaction, prompt, target } = group;
+        const { id, groupid, comment, edition, reaction, prompt, target } = group;
         const aiContext = buildAiContext(group);
         console.log(`\n⚙️ Processing ${groupid}`);
 
@@ -1664,11 +1664,11 @@ async function processGroups(requestCode) {
         const type = getPeerType(peer);
 
         if (type == 'group' || type == 'supergroup') {
-          if (comment || prompt) await sendMessage(peer, groupid, comment, edition, target, prompt, aiContext);
-          if (reaction) await reactToMessage(peer, groupid, reaction, target);
+          if (comment || prompt) await sendMessage(peer, groupid, comment, edition, target, prompt, id, aiContext);
+          if (reaction) await reactToMessage(peer, groupid, reaction, target, id);
         } else if (type == 'channel') {
-          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, edition, prompt, aiContext);
-          if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction);
+          if (comment || prompt) await sendCommentToPost(peer, groupid, target, comment, edition, prompt, id, aiContext);
+          if (reaction) await reactToCommentOfPost(peer, groupid, target, reaction, id);
         }
 
 	if (postingDelay > 0) {
