@@ -43,6 +43,36 @@ const PORT = process.env.PORT || 3000;
 const BASIC_AUTH_USER = process.env.BASIC_AUTH_USER;
 const BASIC_AUTH_PASSWORD = process.env.BASIC_AUTH_PASSWORD;
 
+function parseCliArgs(argv) {
+  const args = { start: false, help: false };
+  for (const arg of argv.slice(2)) {
+    if (arg === '--start' || arg === '-s') {
+      args.start = true;
+    } else if (arg === '--help' || arg === '-h') {
+      args.help = true;
+    } else {
+      console.error(`Unknown option: ${arg}`);
+      printUsage();
+      process.exit(1);
+    }
+  }
+  return args;
+}
+
+function printUsage() {
+  console.log(`Usage: node server.js [options]
+
+Options:
+  --start, -s    Start group processing / message sending as soon as the server is up
+  --help, -h     Show this help`);
+}
+
+const cli = parseCliArgs(process.argv);
+if (cli.help) {
+  printUsage();
+  process.exit(0);
+}
+
 // Pending Telegram auth code (replaces Electron IPC request-code / submit-code)
 let pendingCode = { resolve: null, phone: null };
 
@@ -325,29 +355,34 @@ app.get('/api/status', (req, res) => {
 
 let taskCount = 0;
 
+function startProcessing() {
+  const expireAt = getConfigItem('LICENSE_EXPIRE_AT');
+  if (expireAt) {
+    const exp = new Date(expireAt);
+    if (exp < new Date()) {
+      const error = new Error('Термін ліцензії програми закінчився!');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  setIsRunning(true);
+  if (taskCount > 0) {
+    return { message: 'already running' };
+  }
+  taskCount++;
+  const task = processGroups(requestCode);
+  task.finally(() => taskCount--);
+  return { message: 'started' };
+}
+
 app.post('/api/start', async (req, res) => {
   try {
-    const expireAt = getConfigItem('LICENSE_EXPIRE_AT');
-    if (expireAt) {
-      const exp = new Date(expireAt);
-      if (exp < new Date()) {
-        return res.status(403).json({
-          error: 'Термін ліцензії програми закінчився!',
-        });
-      }
-    }
-
-    setIsRunning(true);
-    if (taskCount > 0) {
-      return res.json({ message: 'already running' });
-    }
-    taskCount++;
-    const task = processGroups(requestCode);
-    task.finally(() => taskCount--);
-    res.json({ message: 'started' });
+    const result = startProcessing();
+    res.json(result);
   } catch (e) {
     setIsRunning(false);
-    res.status(500).json({ error: e.message });
+    res.status(e.statusCode || 500).json({ error: e.message });
   }
 });
 
@@ -391,6 +426,15 @@ function startServer() {
   }
   app.listen(PORT, () => {
     console.log(`Tgposter server at http://localhost:${PORT}`);
+    if (cli.start) {
+      try {
+        const result = startProcessing();
+        console.log(`Auto-start: ${result.message}`);
+      } catch (e) {
+        setIsRunning(false);
+        console.error(`Auto-start failed: ${e.message}`);
+      }
+    }
   });
 }
 
